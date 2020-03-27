@@ -336,7 +336,7 @@ class NegotiateMessage(Message):
         return msg
 
     def encode(self) -> bytes:
-        pass
+        pass  # TODO encode NegotiateMessage
 
     def __repr__(self) -> str:
         return f'<NegotiateMessage {{{str(self.workstation or "*")}@{str(self.domain_name or "*")}, ' \

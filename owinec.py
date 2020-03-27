@@ -63,11 +63,11 @@ class WSManHandler(BaseHTTPRequestHandler):
         try:
             negotiate_msg = ntlm.NegotiateMessage.decode(base64.b64decode(auth[1]))
         except Exception as e:
-            logger.info(f'500 Internal server error while parsing NegotiateMessage - {e}')
+            logger.info(f'500 Internal server error while parsing NEGOTIATE_MESSAGE - {e}')
             self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
             self.send_header('WWW-Authenticate', 'Negotiate')
             self.end_headers()
-            self.wfile.write(b'Internal server error')
+            self.wfile.write(b'Internal server error while parsing NEGOTIATE_MESSAGE')
             return
 
         # TODO handle request
