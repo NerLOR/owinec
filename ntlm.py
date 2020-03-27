@@ -14,6 +14,10 @@ import secrets
 CHARSET_OEM = 'cp437'
 CHARSET_UNICODE = 'utf16'
 
+VERSION_DEFAULT_MAJOR = 10
+VERSION_DEFAULT_MINOR = 0
+VERSION_DEFAULT_BUILD = 0
+
 NEGOTIATE_MESSAGE = 0x1
 CHALLENGE_MESSAGE = 0x2
 AUTHENTICATE_MESSAGE = 0x3
@@ -270,7 +274,7 @@ class Message:
     def __init__(self, msg_type: int):
         if msg_type not in (NEGOTIATE_MESSAGE, CHALLENGE_MESSAGE, AUTHENTICATE_MESSAGE):
             raise AssertionError('Invalid NTLM message type: invalid message type')
-        self.version = Version(10, 0, 0)
+        self.version = Version(VERSION_DEFAULT_MAJOR, VERSION_DEFAULT_MINOR, VERSION_DEFAULT_BUILD)
         self.flags = NegotiateFlags()
         self.type = msg_type
 
@@ -343,9 +347,9 @@ class NegotiateMessage(Message):
         else:
             domain_name_enc = self.domain_name.encode(self.charset)
             workstation_enc = self.workstation.encode(self.charset)
-        return b'NTLMSSP\0' + struct.pack('<IIHHIHHIQ', self.type, int(self.flags), len(domain_name_enc),
+        return b'NTLMSSP\0' + struct.pack('<IIHHIHHIs8', self.type, int(self.flags), len(domain_name_enc),
                                           len(domain_name_enc), 40, len(workstation_enc), len(workstation_enc),
-                                          40 + len(domain_name_enc), self.version)
+                                          40 + len(domain_name_enc), self.version.encode())
 
     def __repr__(self) -> str:
         return f'<NegotiateMessage {{{str(self.workstation or "*")}@{str(self.domain_name or "*")}, ' \
