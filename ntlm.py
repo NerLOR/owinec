@@ -9,6 +9,7 @@ from typing import Tuple, Iterator
 import datetime
 import struct
 import base64
+import secrets
 
 CHARSET_OEM = 'cp437'
 CHARSET_UNICODE = 'utf16'
@@ -290,9 +291,9 @@ class Message:
         if msg_type == NEGOTIATE_MESSAGE:
             return NegotiateMessage.decode(data)
         elif msg_type == CHALLENGE_MESSAGE:
-            raise NotImplementedError()  # TODO reference ChallengeMessage
+            return ChallengeMessage.decode(data)
         elif msg_type == AUTHENTICATE_MESSAGE:
-            raise NotImplementedError()  # TODO reference AuthenticateMessage
+            return AuthenticateMessage.decode(data)
         else:
             raise NotImplementedError('Unexpected error')
 
@@ -336,9 +337,63 @@ class NegotiateMessage(Message):
         return msg
 
     def encode(self) -> bytes:
-        pass  # TODO encode NegotiateMessage
+        if NTLMSSP_NEGOTIATE_VERSION in self.flags:
+            domain_name_enc = bytes()
+            workstation_enc = bytes()
+        else:
+            domain_name_enc = self.domain_name.encode(self.charset)
+            workstation_enc = self.workstation.encode(self.charset)
+        return b'NTLMSSP\0' + struct.pack('<IIHHIHHIQ', self.type, int(self.flags), len(domain_name_enc),
+                                          len(domain_name_enc), 40, len(workstation_enc), len(workstation_enc),
+                                          40 + len(domain_name_enc), self.version)
 
     def __repr__(self) -> str:
         return f'<NegotiateMessage {{{str(self.workstation or "*")}@{str(self.domain_name or "*")}, ' \
                f'{repr(self.flags)}, {repr(self.version)}}}>'
+
+
+class ChallengeMessage(Message):
+    def __init__(self, target_name: str = None, challenge: bytes = None):
+        super().__init__(CHALLENGE_MESSAGE)
+        self.target_name = target_name
+        self.target_info = AVPairList()
+        self.challenge = challenge or secrets.token_bytes(8)
+        self.negotiate_msg = None
+        if len(self.challenge) != 8:
+            raise AssertionError('Invalid length for server challenge: has to be 64 bit')
+
+    @staticmethod
+    def decode(data: bytes) -> Message:
+        raise NotImplementedError()  # TODO decode ChallengeMessage
+
+    def encode(self) -> bytes:
+        target_name_enc = self.target_name.encode(self.charset) if self.target_name else b''
+        target_info_enc = self.target_info.encode(self.charset)
+        return b'NTLMSSP\0' + struct.pack('<IHHII8sQHHIs8', self.type, len(target_name_enc),
+                                          len(target_name_enc), 56, int(self.flags), self.challenge, 0,
+                                          len(target_info_enc), len(target_info_enc), 56 + len(target_name_enc),
+                                          self.version.encode()) \
+               + target_name_enc + target_info_enc
+
+    def __repr__(self) -> str:
+        raise NotImplementedError()  # TODO __repr__ ChallengeMessage
+
+
+class AuthenticateMessage(Message):
+    def __init__(self):
+        super().__init__(AUTHENTICATE_MESSAGE)
+
+    @staticmethod
+    def decode(data: bytes) -> Message:
+        raise NotImplementedError()  # TODO decode AuthenticateMessage
+
+    def encode(self) -> bytes:
+        raise NotImplementedError()  # TODO encode AuthenticateMessage
+
+    def __repr__(self) -> str:
+        raise NotImplementedError()  # TODO __repr__ AuthenticateMessage
+
+
+def decode_message(data: bytes) -> Message:
+    return Message.decode(data)
 
