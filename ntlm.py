@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # owinec - Open Windows Event Collector
-# NT LAN Manager (NTLM) implementation
+# NT LAN Manager (NTLM) Authentication Protocol (NLMP) implementation
 # Lorenz Stechauner, 2020
 
 NEGOTIATE_MESSAGE = 0x1
