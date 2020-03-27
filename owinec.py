@@ -26,22 +26,22 @@ class WSManHandler(BaseHTTPRequestHandler):
         return super().parse_request()
 
     def do_GET(self):
-        logger.debug(f'Got GET request from {self.address_string()}, invalid method')
+        logger.debug(f'GET {self.path} from {self.address_string()}, invalid method')
         self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
         self.end_headers()
         self.wfile.write(b'Method Not Allowed')
 
     def do_PUT(self):
-        logger.debug(f'Got PUT request from {self.address_string()}, invalid method')
+        logger.debug(f'PUT {self.path} from {self.address_string()}, invalid method')
         self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
         self.end_headers()
         self.wfile.write(b'Method Not Allowed')
 
     def do_POST(self):
-        logger.debug(f'Got request from {self.address_string()}')
+        logger.debug(f'POST {self.path} from {self.address_string()}')
         auth = self.headers['Authorization']
         if auth is None:
-            logger.info(f'401 Unauthorized - Header field Authorization missing')
+            logger.info(f'POST {self.path} - 401 Unauthorized - Header field Authorization missing')
             self.send_response(HTTPStatus.UNAUTHORIZED)
             self.send_header('WWW-Authenticate', 'Negotiate')
             self.end_headers()
@@ -51,7 +51,7 @@ class WSManHandler(BaseHTTPRequestHandler):
         auth = auth.split(' ')
         logger.debug(f'Authentication protocol: {auth[0]}')
         if auth[0] != 'Negotiate':
-            logger.info(f'401 Unauthorized - Authentication protocol not supported')
+            logger.info(f'POST {self.path} - 401 Unauthorized - Authentication protocol not supported')
             self.send_response(HTTPStatus.UNAUTHORIZED)
             self.send_header('WWW-Authenticate', 'Negotiate')
             self.end_headers()
@@ -63,7 +63,7 @@ class WSManHandler(BaseHTTPRequestHandler):
         try:
             negotiate_msg = ntlm.NegotiateMessage.decode(base64.b64decode(auth[1]))
         except Exception as e:
-            logger.info(f'500 Internal server error while parsing NEGOTIATE_MESSAGE - {e}')
+            logger.info(f'POST {self.path} - 500 Internal server error while parsing NEGOTIATE_MESSAGE - {e}')
             self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
             self.send_header('WWW-Authenticate', 'Negotiate')
             self.end_headers()
@@ -72,7 +72,7 @@ class WSManHandler(BaseHTTPRequestHandler):
 
         # TODO handle request
 
-        logger.info(f'501 Not implemented')
+        logger.info(f'POST {self.path} - 501 Not implemented')
         self.send_response(HTTPStatus.NOT_IMPLEMENTED)
         self.send_header('WWW-Authenticate', 'Negotiate')
         self.end_headers()
