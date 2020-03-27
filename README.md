@@ -45,7 +45,7 @@ As transport protocol either HTTP or HTTPS may be used:
 
 | Transport Protocol | Port | WinRM Client Support | WinRM Server Support | Condition                                    |
 |--------------------|:----:|:--------------------:|:--------------------:|----------------------------------------------|
-| HTTP               | 5985 | Yes                  | Yes                  | Trusted Host *AND* Allow unencrypted traffic |
+| HTTP               | 5985 | Yes                  | Yes                  | Trusted Host                                 |
 | HTTPS              | 5986 | Yes                  | Yes                  | Cert. CN == Hostname *OR* Trusted Host (?)   |
 
 
