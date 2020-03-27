@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 # owinec - Open Windows Event Collector
-# NTLM implementation
-# Lorenz Stechauner 2020
+# NT LAN Manager (NTLM) implementation
+# Lorenz Stechauner, 2020
 
 NEGOTIATE_MESSAGE = 0x1
 CHALLENGE_MESSAGE = 0x2
