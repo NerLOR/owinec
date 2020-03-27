@@ -52,10 +52,18 @@ MsvAvFlags_SPN_UNTRUSTED = 0x00000004
 
 
 def _unpack_filetime(data: bytes) -> datetime.datetime:
+    """
+    >>> _unpack_filetime(b'\\xd0\\x8c\\xdd\\xb8\\xec\\x02\\xd6\\x01')
+    datetime.datetime(2020, 3, 25, 21, 31, 19, 107298)
+    """
     return datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=struct.unpack('<Q', data)[0] / 10)
 
 
 def _pack_filetime(timestamp: datetime.datetime) -> bytes:
+    """
+    >>> _pack_filetime(datetime.datetime(2020, 3, 25, 21, 31, 19, 107298))
+    b'\\xd0\\x8c\\xdd\\xb8\\xec\\x02\\xd6\\x01'
+    """
     return struct.pack('<Q', int((timestamp - datetime.datetime(1601, 1, 1)).total_seconds() * 10_000_000))
 
 
