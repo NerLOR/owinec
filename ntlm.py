@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Tuple, Iterator
 import datetime
 import struct
+import base64
 
 CHARSET_OEM = 'cp437'
 CHARSET_UNICODE = 'utf16'
@@ -297,7 +298,12 @@ class Message:
 
 
 class NegotiateMessage(Message):
-    def __init__(self, workstation: str = None, domain_name: str = None):
+    """
+    >>> NegotiateMessage.decode(base64.b64decode('TlRMTVNTUAABAAAAl4II4gAAAAAAAAAAAAAAAAAAAAAKALpHAAAADw=='))
+    <NegotiateMessage {*@*, <NegotiateFlags {NTLMSSP_NEGOTIATE_56, NTLMSSP_NEGOTIATE_KEY_EXCH, NTLMSSP_NEGOTIATE_128, NTLMSSP_NEGOTIATE_VERSION, NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMSSP_NEGOTIATE_NTLM, NTLMSSP_NEGOTIATE_LM_KEY, NTLMSSP_NEGOTIATE_SIGN, NTLMSSP_REQUEST_TARGET, NTLM_NEGOTIATE_OEM, NTLMSSP_NEGOTIATE_UNICODE}>, <Version {10.0-18362, 15}>}>
+    """
+
+    def __init__(self, workstation: str or None, domain_name: str or None):
         super().__init__(NEGOTIATE_MESSAGE)
         self.domain_name = domain_name
         self.workstation = workstation
@@ -308,9 +314,12 @@ class NegotiateMessage(Message):
             raise AssertionError('Invalid NTLM message: invalid signature')
         msg_type, negotiate_flags, domain_name_len, domain_name_max_len, domain_name_offset, workstation_len, \
             workstation_max_len, workstation_offset, version = struct.unpack('<IIHHIHHI8s', data[8:40])
-        msg = NegotiateMessage()
-        msg.version = Version.decode(version)
+        msg = NegotiateMessage(None, None)
         msg.flags = NegotiateFlags(negotiate_flags)
+        if NTLMSSP_NEGOTIATE_VERSION in msg.flags:
+            msg.version = Version.decode(version)
+        else:
+            msg.version = None
         if NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED in msg.flags:
             msg.domain_name = data[domain_name_offset:domain_name_offset + domain_name_len]
         if NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED in msg.flags:
@@ -321,7 +330,6 @@ class NegotiateMessage(Message):
         pass
 
     def __repr__(self) -> str:
-        return f'<NegotiateMessage {{{repr(self.version)}, {str(self.workstation)}@{str(self.domain_name)}, ' \
-               f'{repr(self.flags)}}}>'
-
+        return f'<NegotiateMessage {{{str(self.workstation or "*")}@{str(self.domain_name or "*")}, ' \
+               f'{repr(self.flags)}, {repr(self.version)}}}>'
 
