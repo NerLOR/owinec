@@ -9,6 +9,9 @@ from typing import Tuple, Iterator
 import datetime
 import struct
 
+CHARSET_OEM = 'cp437'
+CHARSET_UNICODE = 'utf16'
+
 NEGOTIATE_MESSAGE = 0x1
 CHALLENGE_MESSAGE = 0x2
 AUTHENTICATE_MESSAGE = 0x3
@@ -141,7 +144,7 @@ class AVPair:
             return AVPair(av_id, None), 4
         elif av_id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
                        MsvAvDnsTreeName, MsvAvTargetName):
-            return AVPair(av_id, data[4:4 + av_len].decode('utf16' if unicode else 'cp437')), 4 + av_len
+            return AVPair(av_id, data[4:4 + av_len].decode(CHARSET_UNICODE if unicode else CHARSET_OEM)), 4 + av_len
         elif av_id == MsvAvFlags:
             if av_len != 4:
                 raise AssertionError('Invaild NTLM AVPair (type MsvAvFlags), length has to be 32 bit')
@@ -160,7 +163,7 @@ class AVPair:
             return struct.pack('<HH', self.id, 0)
         elif self.id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
                          MsvAvDnsTreeName, MsvAvTargetName):
-            value_encoded = self.value.encode('utf16' if unicode else 'cp437')
+            value_encoded = self.value.encode(CHARSET_UNICODE if unicode else CHARSET_OEM)
             return struct.pack('<HH', self.id, len(value_encoded)) + value_encoded
         elif self.id == MsvAvFlags:
             return struct.pack('<HHI', self.id, 4, self.value)
