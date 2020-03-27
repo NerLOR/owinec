@@ -59,6 +59,8 @@ class WSManHandler(BaseHTTPRequestHandler):
             return
 
         # TODO handle client sessions
+        payload = self.rfile.read(int(self.headers['Content-Length'])).decode('utf16')
+        print(payload)
 
         try:
             msg = ntlm.decode_message(base64.b64decode(auth[1]))
