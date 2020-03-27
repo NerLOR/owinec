@@ -1,3 +1,4 @@
 /.idea
 *.pdf
 /test
+__pycache__/

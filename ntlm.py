@@ -72,6 +72,31 @@ def _pack_filetime(timestamp: datetime.datetime) -> bytes:
     return struct.pack('<Q', int((timestamp - datetime.datetime(1601, 1, 1)).total_seconds() * 10_000_000))
 
 
+class Version:
+    # TODO Version doctests
+
+    def __init__(self, major_version: int, minor_version: int, product_build: int, ntlm_revision: int = 0x0F):
+        self.major_version = major_version
+        self.minor_version = minor_version
+        self.product_build = product_build
+        self.ntlm_revision = ntlm_revision
+
+    @staticmethod
+    def decode(data: bytes) -> Version:
+        major_version, minor_verion, product_build, reserved, ntlm_revision = struct.unpack('<BBH3sB', data)
+        return Version(major_version, minor_verion, product_build, ntlm_revision)
+
+    def encode(self) -> bytes:
+        return struct.pack('<BBH3sB', self.major_version, self.minor_version, self.product_build, bytes(3),
+                           self.ntlm_revision)
+
+    def __repr__(self) -> str:
+        return f'<Version {{{self.major_version}.{self.minor_version}-{self.product_build}, {self.ntlm_revision}}}>'
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+
 class NegotiateFlags:
     """
     >>> NegotiateFlags()
@@ -131,7 +156,13 @@ class NegotiateFlags:
 
 
 class AVPair:
+    # TODO AVPair doctests
+
     def __init__(self, av_id: int, value):
+        if av_id not in (MsvAvEOL, MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
+                         MsvAvDnsTreeName, MsvAvFlags, MsvAvTimestamp, MsvAvSingleHost, MsvAvTargetName,
+                         MsvAvChannelBindings):
+            raise AssertionError('Invalid AVPair id')
         self.id = av_id
         self.value = value
 
@@ -140,23 +171,23 @@ class AVPair:
         av_id, av_len = struct.unpack('<HH', data[:4])
         if av_id == MsvAvEOL:
             if av_len != 0:
-                raise AssertionError('Invalid NTLM AVPair (type MsvAvEOL), length has to be 0')
+                raise AssertionError('Invalid NTLM AVPair (type MsvAvEOL): length has to be 0')
             return AVPair(av_id, None), 4
         elif av_id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
                        MsvAvDnsTreeName, MsvAvTargetName):
             return AVPair(av_id, data[4:4 + av_len].decode(CHARSET_UNICODE if unicode else CHARSET_OEM)), 4 + av_len
         elif av_id == MsvAvFlags:
             if av_len != 4:
-                raise AssertionError('Invaild NTLM AVPair (type MsvAvFlags), length has to be 32 bit')
+                raise AssertionError('Invaild NTLM AVPair (type MsvAvFlags): length has to be 32 bit')
             return AVPair(av_id, struct.unpack('<I', data[4:8])[0]), 8
         elif av_id == MsvAvTimestamp:
             if av_len != 8:
-                raise AssertionError('Invalid NTLM AVPair (type MsvAvTimestamp), length has to be 64 bit')
+                raise AssertionError('Invalid NTLM AVPair (type MsvAvTimestamp): length has to be 64 bit')
             return AVPair(av_id, _unpack_filetime(data[4:12])), 12
         elif av_id in (MsvAvSingleHost, MsvAvChannelBindings):
             return AVPair(av_id, data[4:4 + av_len]), 4 + av_len
         else:
-            raise AssertionError('Invalid NTLM AVPair, unexpected error')
+            raise AssertionError('Invalid NTLM AVPair: unexpected error')
 
     def encode(self, unicode: bool) -> bytes:
         if self.id == MsvAvEOL:
@@ -185,6 +216,8 @@ class AVPair:
 
 
 class AVPairList:
+    # TODO AVPairList doctests
+
     def __init__(self):
         self._pairs = []
 
@@ -229,4 +262,30 @@ class AVPairList:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+
+class Message:
+    def __init__(self, msg_type: int):
+        if msg_type not in (NEGOTIATE_MESSAGE, CHALLENGE_MESSAGE, AUTHENTICATE_MESSAGE):
+            raise AssertionError('Invalid NTLM message type: invalid message type')
+        self.version = Version(10, 0, 0)
+        self.flags = NegotiateFlags()
+        self.type = msg_type
+
+    @staticmethod
+    def decode(data: bytes) -> Message:
+        if not data.startswith(b'NTLMSSP\0'):
+            raise AssertionError('Invalid NTLM message: invalid signature')
+        msg_type, = struct.unpack('<I', data[8:12])
+        if msg_type == NEGOTIATE_MESSAGE:
+            raise NotImplementedError()
+        elif msg_type == CHALLENGE_MESSAGE:
+            raise NotImplementedError()
+        elif msg_type == AUTHENTICATE_MESSAGE:
+            raise NotImplementedError()
+        else:
+            raise NotImplementedError()
+
+    def encode(self) -> bytes:
+        pass
 
