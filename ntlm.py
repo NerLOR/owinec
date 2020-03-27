@@ -4,6 +4,8 @@
 # NT LAN Manager (NTLM) Authentication Protocol (NLMP) implementation
 # Lorenz Stechauner, 2020
 
+from __future__ import annotations
+from typing import Tuple
 import datetime
 import struct
 
@@ -124,3 +126,56 @@ class NegotiateFlags:
     def __str__(self) -> str:
         return self.__repr__()
 
+
+class AVPair:
+    def __init__(self, av_id: int, value):
+        self.id = av_id
+        self.value = value
+
+    @staticmethod
+    def decode(data: bytes, unicode: bool) -> Tuple[AVPair, int]:
+        av_id, av_len = struct.unpack('<HH', data[:4])
+        if av_id == MsvAvEOL:
+            if av_len != 0:
+                raise AssertionError('Invalid NTLM AVPair (type MsvAvEOL), length has to be 0')
+            return AVPair(av_id, None), 4
+        elif av_id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
+                       MsvAvDnsTreeName, MsvAvTargetName):
+            return AVPair(av_id, data[4:4 + av_len].decode('utf16' if unicode else 'cp437')), 4 + av_len
+        elif av_id == MsvAvFlags:
+            if av_len != 4:
+                raise AssertionError('Invaild NTLM AVPair (type MsvAvFlags), length has to be 32 bit')
+            return AVPair(av_id, struct.unpack('<I', data[4:8])[0]), 8
+        elif av_id == MsvAvTimestamp:
+            if av_len != 8:
+                raise AssertionError('Invalid NTLM AVPair (type MsvAvTimestamp), length has to be 64 bit')
+            return AVPair(av_id, _unpack_filetime(data[4:12])), 12
+        elif av_id in (MsvAvSingleHost, MsvAvChannelBindings):
+            return AVPair(av_id, data[4:4 + av_len]), 4 + av_len
+        else:
+            raise AssertionError('Invalid NTLM AVPair, unexpected error')
+
+    def encode(self, unicode: bool) -> bytes:
+        if self.id == MsvAvEOL:
+            return struct.pack('<HH', self.id, 0)
+        elif self.id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
+                         MsvAvDnsTreeName, MsvAvTargetName):
+            value_encoded = self.value.encode('utf16' if unicode else 'cp437')
+            return struct.pack('<HH', self.id, len(value_encoded)) + value_encoded
+        elif self.id == MsvAvFlags:
+            return struct.pack('<HHI', self.id, 4, self.value)
+        elif self.id == MsvAvTimestamp:
+            return struct.pack('<HH', self.id, 8) + _pack_filetime(self.value)
+        elif self.id in (MsvAvSingleHost, MsvAvChannelBindings):
+            return struct.pack('<HH', self.id, len(self.value)) + self.value
+        else:
+            raise ReferenceError('Invalid NTLM AVPair id')
+
+    def __repr__(self) -> str:
+        for name, value in globals().items():
+            if name.startswith('MsvAv') and '_' not in name and value == self.id:
+                return f'{name}: {repr(self.value)}'
+        raise ReferenceError('Invalid NTLM AVPair id')
+
+    def __str__(self) -> str:
+        return self.__repr__()
