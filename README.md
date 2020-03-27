@@ -29,6 +29,15 @@ The MS-WSMV protocol stack is structured as follows:
  +--------------+
 ```
 
+* Internet Protocol (IP)
+* Transmission Control Protocol (TCP)
+* Hypertext Transfer Protocol (HTTP)
+* Hypertext Transfer Protocol Secure (HTTPS)
+* Simple Object Access Protocol (SOAP)
+* NTLM Authentication Protocol (NLMP)
+* Web Services Management (WS-MAN)
+* WS-MAN Extensions for Windows Vista (MS-WSMV)
+
 As transport protocol either HTTP or HTTPS may be used:
 
 | Transport Protocol | Port | WinRM Client Support | WinRM Server Support | Condition                                    |
