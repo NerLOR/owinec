@@ -278,14 +278,50 @@ class Message:
             raise AssertionError('Invalid NTLM message: invalid signature')
         msg_type, = struct.unpack('<I', data[8:12])
         if msg_type == NEGOTIATE_MESSAGE:
-            raise NotImplementedError()
+            return NegotiateMessage.decode(data)
         elif msg_type == CHALLENGE_MESSAGE:
-            raise NotImplementedError()
+            raise NotImplementedError()  # TODO reference ChallengeMessage
         elif msg_type == AUTHENTICATE_MESSAGE:
-            raise NotImplementedError()
+            raise NotImplementedError()  # TODO reference AuthenticateMessage
         else:
-            raise NotImplementedError()
+            raise NotImplementedError('Unexpected error')
 
     def encode(self) -> bytes:
         pass
+
+    def __repr__(self) -> str:
+        return f'<Message {{{repr(self.type)}, {repr(self.version)}, {repr(self.flags)}}}>'
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+
+class NegotiateMessage(Message):
+    def __init__(self, workstation: str = None, domain_name: str = None):
+        super().__init__(NEGOTIATE_MESSAGE)
+        self.domain_name = domain_name
+        self.workstation = workstation
+
+    @staticmethod
+    def decode(data: bytes) -> NegotiateMessage:
+        if not data.startswith(b'NTLMSSP\0'):
+            raise AssertionError('Invalid NTLM message: invalid signature')
+        msg_type, negotiate_flags, domain_name_len, domain_name_max_len, domain_name_offset, workstation_len, \
+            workstation_max_len, workstation_offset, version = struct.unpack('<IIHHIHHI8s', data[8:40])
+        msg = NegotiateMessage()
+        msg.version = Version.decode(version)
+        msg.flags = NegotiateFlags(negotiate_flags)
+        if NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED in msg.flags:
+            msg.domain_name = data[domain_name_offset:domain_name_offset + domain_name_len]
+        if NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED in msg.flags:
+            msg.workstation = data[workstation_offset:workstation_offset + workstation_offset]
+        return msg
+
+    def encode(self) -> bytes:
+        pass
+
+    def __repr__(self) -> str:
+        return f'<NegotiateMessage {{{repr(self.version)}, {str(self.workstation)}@{str(self.domain_name)}, ' \
+               f'{repr(self.flags)}}}>'
+
 
