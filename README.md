@@ -3,21 +3,23 @@
 
 **Source Initiated** log collecting from domain-joined or non-domain-joined Windows hosts.
 
-Web Services Management Protocol Extensions for Windows Vista (MS-WSMV)
 
-| Transport Protocol | Port | Client | Server | Condition                                    |
-|--------------------|:----:|:------:|:------:|----------------------------------------------|
-| HTTP               | 5985 | Yes    | Yes    | Trusted Host *AND* Allow unencrypted traffic |
-| HTTPS              | 5986 | Yes    | Yes    | Cert. CN == Hostname *OR* Trusted Host (?)   |
+# Protocol
+
+| Transport Protocol | Port | Source | Collector | Condition                                    |
+|--------------------|:----:|:------:|:---------:|----------------------------------------------|
+| HTTP               | 5985 | Yes    | Yes       | Trusted Host *AND* Allow unencrypted traffic |
+| HTTPS              | 5986 | Yes    | Yes       | Cert. CN == Hostname *OR* Trusted Host (?)   |
 
 
-| Authentication Protocol | Default | Client | Server  |
-|-------------------------|:-------:|:------:|:-------:|
-| Negotiate (NTLMv1)      | Yes     | Yes    | Yes     |
-| Basic                   | No      | No     | Yes (?) |
-| CredSSP                 | No      | No (?) | Yes (?) |
-| Digest                  | Yes     | No (?) | Yes (?) |
-| Kerberos                | Yes     | No (?) | Yes (?) |
+| Authentication Protocol | Default | Source | Collector  |
+|-------------------------|:-------:|:------:|:----------:|
+| Negotiate (NTLMv1)      | Yes     | Yes    | Yes        |
+| Basic                   | No      | No     | Yes (?)    |
+| CredSSP                 | No      | No (?) | Yes (?)    |
+| Digest                  | Yes     | No (?) | Yes (?)    |
+| Kerberos                | Yes     | No (?) | Yes (?)    |
+
 
 ```
 +--------+                                                      +-----------+
@@ -25,32 +27,37 @@ Web Services Management Protocol Extensions for Windows Vista (MS-WSMV)
 +--------+                                                      +-----------+
     |                                                                 |
     |        +----------------------------------------------+         |
-    |        | NTLMv1 NEGOTIATE                             |         |
-    |        +----------------------------------------------+         |
-    |--------| POST /wsman/SubscriptionManager/WEC          |-------->|
-    |        | Authorization: Negotiate TlRMTVNT...AAAADw== |         |
+    |        | POST /wsman/SubscriptionManager/WEC          |         |
+    |--------| Authorization: Negotiate TlRMTVNT...AAAADw== |-------->|
     |        | Content-Length: 0                            |         |
     |        +----------------------------------------------+         |
     |                                                                 |
     |        +----------------------------------------------+         |
-    |        | NTLMv1 CHALLENGE                             |         |
-    |        +----------------------------------------------+         |
-    |<-------| 401 Unauthorized                             |---------|
-    |        | WWW-Authenticate: Negotiate TlRMTV...AAAA==  |         |
+    |        | 401 Unauthorized                             |         |
+    |<-------| WWW-Authenticate: Negotiate TlRMTV...AAAA==  |---------|
     |        | Content-Length: 0                            |         |
     |        +----------------------------------------------+         |
     |                                                                 |
-    |        +----------------------------------------------+         |
-    |        | NTLMv1 AUTHENTICATE                          |         |
     |        +----------------------------------------------+         |
     |        | POST /wsman/SubscriptionManager/WEC          |         |
-    |--------| Authorization: Negotiate TlRMTVNT...7aFDpnnX |-------->|
-    |        | Content-Lenght: X                            |         |
+    |        | Authorization: Negotiate TlRMTVNT...7aFDpnnX |         |
+    |--------| Content-Lenght: X                            |-------->|
     |        +----------------------------------------------+         |
     |        | SOAP Envelope                                |         |
     |        +----------------------------------------------+         |
     |                                                                 |
 ```
+
+1. The *source* sends a `POST` request for the URL `/wsman/SubscriptionManager/WEC` and with the `Authorization` header field set to `Negotiate` followed by a **NTLMv1 NEGOTIATE_MESSAGE**.
+    The payload is empty.
+2. The *collector* response with a `401` status code and with the `WWW-Authenticate` header field set to `Negotiate` followd by a **NTLMv1 CHALLENGE_MESSAGE**.
+    The payload is empty.
+3. The *source* authenticates itself by sending a `POST` request for the URL `/wsman/SubscriptionManager/WEC` and with the `Authorization` header field set to `Negotiate` followed by a **NTMLv1 AUTHENTICATE_MESSAGE**
+    The payload contains a SOAP envelope with `Action` set to `Enumerate`.
+
+## Windows Implementation
+
+
 
 # References
 
