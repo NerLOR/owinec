@@ -68,7 +68,7 @@ def _unpack_filetime(data: bytes) -> datetime.datetime:
     >>> _unpack_filetime(b'\\xd0\\x8c\\xdd\\xb8\\xec\\x02\\xd6\\x01')
     datetime.datetime(2020, 3, 25, 21, 31, 19, 107298)
     """
-    return datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=struct.unpack('<Q', data)[0] / 10)
+    return datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=struct.unpack('<Q', data)[0] // 10)
 
 
 def _pack_filetime(timestamp: datetime.datetime) -> bytes:
@@ -240,7 +240,7 @@ class AVPairList:
                 av_pair_list._pairs.append(av)
 
     def encode(self, charset: str) -> bytes:
-        return b''.join([av.encode(charset) for av in self])
+        return b''.join([av.encode(charset) for av in self] + [AVPair(MsvAvEOL, None).encode(charset)])
 
     def __iter__(self) -> Iterator[AVPair]:
         return self._pairs.__iter__()
@@ -368,8 +368,9 @@ class NegotiateMessage(Message):
         msg.flags[NTLMSSP_NEGOTIATE_SIGN] = True
         return msg
 
-    def response(self) -> ChallengeMessage:
-        return ChallengeMessage.from_negotiate(self)
+    def response(self, target_name: str or None, computer_name: str or None,
+                 domain_dame: str or None) -> ChallengeMessage:
+        return ChallengeMessage.from_negotiate(self, target_name, computer_name, domain_dame)
 
     def __repr__(self) -> str:
         return f'<NegotiateMessage {{{str(self.workstation or "*")}@{str(self.domain_name or "*")}, ' \
@@ -387,13 +388,33 @@ class ChallengeMessage(Message):
             raise AssertionError('Invalid length for server challenge: has to be 64 bit')
 
     @staticmethod
-    def decode(data: bytes) -> Message:
-        raise NotImplementedError()  # TODO decode ChallengeMessage
+    def decode(data: bytes) -> ChallengeMessage:
+        if not data.startswith(b'NTLMSSP\0'):
+            raise AssertionError('Invalid NTLM message: invalid signature')
+        msg_type, target_name_len, target_name_max_len, target_name_offset, negotiate_flags, server_challenge, \
+            reserved, target_info_len, target_info_max_len, target_info_offset, \
+            version = struct.unpack('<IHHII8sQHHI8s', data[8:56])
+        if msg_type != CHALLENGE_MESSAGE:
+            raise AssertionError('Invalid NTLM challenge message: invalid message type')
+        if reserved != 0:
+            raise AssertionError('Invalid NTLM challenge message: reserved field has to be 0')
+
+        msg = ChallengeMessage()
+        msg.version = Version.decode(version)
+        msg.flags = NegotiateFlags(negotiate_flags)
+        msg.challenge = server_challenge
+
+        if NTLMSSP_NEGOTIATE_TARGET_INFO in msg.flags:
+            msg.target_name = data[target_name_offset:target_name_offset + target_name_len].decode(msg.charset)
+
+        msg.target_info = AVPairList.decode(data[target_info_offset:target_info_offset + target_info_len], msg.charset)
+
+        return msg
 
     def encode(self) -> bytes:
         target_name_enc = self.target_name.encode(self.charset) if self.target_name else bytes()
         target_info_enc = self.target_info.encode(self.charset)
-        return b'NTLMSSP\0' + struct.pack('<IHHII8sQHHIs8', self.type, len(target_name_enc),
+        return b'NTLMSSP\0' + struct.pack('<IHHII8sQHHI8s', self.type, len(target_name_enc),
                                           len(target_name_enc), 56, int(self.flags), self.challenge, 0,
                                           len(target_info_enc), len(target_info_enc), 56 + len(target_name_enc),
                                           self.version.encode()) \
@@ -404,6 +425,7 @@ class ChallengeMessage(Message):
                        domain_name: str or None) -> ChallengeMessage:
         msg = ChallengeMessage()
         msg.negotiate_msg = negotiate_msg
+        msg.flags[NTLMSSP_NEGOTIATE_VERSION] = True
 
         if NTLMSSP_NEGOTIATE_UNICODE in negotiate_msg.flags:
             msg.flags[NTLMSSP_NEGOTIATE_UNICODE] = True
@@ -455,18 +477,22 @@ class AuthenticateMessage(Message):
         super().__init__(AUTHENTICATE_MESSAGE)
 
     @staticmethod
-    def decode(data: bytes) -> Message:
-        raise NotImplementedError()  # TODO decode AuthenticateMessage
+    def decode(data: bytes) -> AuthenticateMessage:
+        # TODO decode AuthenticateMessage
+        raise NotImplementedError('AuthenticateMessage.decode is not yet implemented')
 
     def encode(self) -> bytes:
-        raise NotImplementedError()  # TODO encode AuthenticateMessage
+        # TODO encode AuthenticateMessage
+        raise NotImplementedError('AuthenticateMessage.encode is not yet implemented')
 
     @staticmethod
     def from_challenge(challenge_msg: ChallengeMessage) -> AuthenticateMessage:
-        raise NotImplementedError()  # TODO from_challenge AuthenticateMessage
+        # TODO from_challenge AuthenticateMessage
+        raise NotImplementedError('AuthenticateMessage.from_challenge is not yet implemented')
 
     def __repr__(self) -> str:
-        raise NotImplementedError()  # TODO __repr__ AuthenticateMessage
+        # TODO __repr__ AuthenticateMessage
+        raise NotImplementedError('AuthenticateMessage.__repr__ is not yet implemented')
 
 
 def decode_message(data: bytes) -> Message:

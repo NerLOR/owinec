@@ -61,16 +61,25 @@ class WSManHandler(BaseHTTPRequestHandler):
         # TODO handle client sessions
 
         try:
-            negotiate_msg = ntlm.NegotiateMessage.decode(base64.b64decode(auth[1]))
+            msg = ntlm.decode_message(base64.b64decode(auth[1]))
         except Exception as e:
-            logger.info(f'POST {self.path} - 500 Internal server error while parsing NEGOTIATE_MESSAGE - {e}')
+            logger.exception(f'POST {self.path} - 500 Internal server error while parsing NTLM message - '
+                             f'{e.__class__.__name__}: {e}')
             self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
             self.send_header('WWW-Authenticate', 'Negotiate')
             self.end_headers()
-            self.wfile.write(b'Internal server error while parsing NEGOTIATE_MESSAGE')
+            self.wfile.write(b'Internal server error while parsing NTLM message')
             return
 
-        # TODO handle request
+        if msg.type == ntlm.NEGOTIATE_MESSAGE:
+            logger.debug(f'NEGOTIATE_MESSAGE received')
+            challenge_msg = msg.response(None, None, None)
+            self.send_response(HTTPStatus.UNAUTHORIZED)
+            self.send_header('WWW-Authenticate', 'Negotiate ' + base64.b64encode(challenge_msg.encode()).decode('ascii'))
+            self.end_headers()
+            return
+        elif msg.type == ntlm.AUTHENTICATE_MESSAGE:
+            logger.debug(f'AUTHENTICATE_MESSAGE received')
 
         logger.info(f'POST {self.path} - 501 Not implemented')
         self.send_response(HTTPStatus.NOT_IMPLEMENTED)
