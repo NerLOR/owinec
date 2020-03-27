@@ -10,6 +10,7 @@ import datetime
 import struct
 import base64
 import secrets
+import platform
 
 CHARSET_OEM = 'cp437'
 CHARSET_UNICODE = 'utf16'
@@ -351,6 +352,25 @@ class NegotiateMessage(Message):
                                           len(domain_name_enc), 40, len(workstation_enc), len(workstation_enc),
                                           40 + len(domain_name_enc), self.version.encode())
 
+    @staticmethod
+    def initialize() -> NegotiateMessage:
+        msg = NegotiateMessage(None, None)
+        msg.flags[NTLMSSP_NEGOTIATE_VERSION] = True
+        msg.flags[NTLMSSP_NEGOTIATE_UNICODE] = True
+        msg.flags[NTLMSSP_REQUEST_TARGET] = True
+        msg.flags[NTLMSSP_NEGOTIATE_NTLM] = True
+        msg.flags[NTLMSSP_NEGOTIATE_ALWAYS_SIGN] = True
+        msg.flags[NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY] = True
+        msg.flags[NTLMSSP_NEGOTIATE_56] = True
+        msg.flags[NTLMSSP_NEGOTIATE_KEY_EXCH] = True
+        msg.flags[NTLMSSP_NEGOTIATE_128] = True
+        msg.flags[NTLMSSP_NEGOTIATE_LM_KEY] = True
+        msg.flags[NTLMSSP_NEGOTIATE_SIGN] = True
+        return msg
+
+    def response(self) -> ChallengeMessage:
+        return ChallengeMessage.from_negotiate(self)
+
     def __repr__(self) -> str:
         return f'<NegotiateMessage {{{str(self.workstation or "*")}@{str(self.domain_name or "*")}, ' \
                f'{repr(self.flags)}, {repr(self.version)}}}>'
@@ -371,7 +391,7 @@ class ChallengeMessage(Message):
         raise NotImplementedError()  # TODO decode ChallengeMessage
 
     def encode(self) -> bytes:
-        target_name_enc = self.target_name.encode(self.charset) if self.target_name else b''
+        target_name_enc = self.target_name.encode(self.charset) if self.target_name else bytes()
         target_info_enc = self.target_info.encode(self.charset)
         return b'NTLMSSP\0' + struct.pack('<IHHII8sQHHIs8', self.type, len(target_name_enc),
                                           len(target_name_enc), 56, int(self.flags), self.challenge, 0,
@@ -379,8 +399,55 @@ class ChallengeMessage(Message):
                                           self.version.encode()) \
                + target_name_enc + target_info_enc
 
+    @staticmethod
+    def from_negotiate(negotiate_msg: NegotiateMessage, target_name: str or None, computer_name: str or None,
+                       domain_name: str or None) -> ChallengeMessage:
+        msg = ChallengeMessage()
+        msg.negotiate_msg = negotiate_msg
+
+        if NTLMSSP_NEGOTIATE_UNICODE in negotiate_msg.flags:
+            msg.flags[NTLMSSP_NEGOTIATE_UNICODE] = True
+        elif NTLM_NEGOTIATE_OEM in negotiate_msg.flags:
+            msg.flags[NTLM_NEGOTIATE_OEM] = True
+        else:
+            raise AssertionError('Invalid charset flags')
+
+        if NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY in negotiate_msg.flags:
+            msg.flags[NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY] = True
+        elif NTLMSSP_NEGOTIATE_LM_KEY in negotiate_msg.flags:
+            msg.flags[NTLMSSP_NEGOTIATE_LM_KEY] = True
+
+        # Non-domain-joined server
+        msg.flags[NTLMSSP_TARGET_TYPE_SERVER] = True
+        msg.target_name = target_name.upper() if target_name else platform.node().upper()
+
+        msg.flags[NTLMSSP_NEGOTIATE_TARGET_INFO] = True
+        msg.flags[NTLMSSP_REQUEST_TARGET] = True
+        msg.flags[NTLMSSP_NEGOTIATE_ALWAYS_SIGN] = True
+        msg.flags[NTLMSSP_NEGOTIATE_NTLM] = True
+
+        msg.flags[NTLMSSP_NEGOTIATE_56] = True
+        msg.flags[NTLMSSP_NEGOTIATE_KEY_EXCH] = True
+        msg.flags[NTLMSSP_NEGOTIATE_128] = True
+
+        if domain_name:
+            msg.target_info[MsvAvNbDomainName] = domain_name.upper()
+            msg.target_info[MsvAvDnsDomainName] = domain_name
+        else:
+            msg.target_info[MsvAvNbDomainName] = computer_name.upper() if computer_name else platform.node().upper()
+            msg.target_info[MsvAvDnsDomainName] = computer_name or platform.node()
+        msg.target_info[MsvAvNbComputerName] = computer_name.upper() if computer_name else platform.node().upper()
+        msg.target_info[MsvAvDnsComputerName] = computer_name or platform.node()
+        msg.target_info[MsvAvTimestamp] = datetime.datetime.now()
+
+        return msg
+
+    def response(self) -> AuthenticateMessage:
+        return AuthenticateMessage.from_challenge(self)
+
     def __repr__(self) -> str:
-        raise NotImplementedError()  # TODO __repr__ ChallengeMessage
+        return f'<ChallengeMessage {{{str(self.target_name or "*")}, 0x{self.challenge.hex()}, {self.target_info}, ' \
+               f'{repr(self.flags)}, {repr(self.version)}}}>'
 
 
 class AuthenticateMessage(Message):
@@ -393,6 +460,10 @@ class AuthenticateMessage(Message):
 
     def encode(self) -> bytes:
         raise NotImplementedError()  # TODO encode AuthenticateMessage
+
+    @staticmethod
+    def from_challenge(challenge_msg: ChallengeMessage) -> AuthenticateMessage:
+        raise NotImplementedError()  # TODO from_challenge AuthenticateMessage
 
     def __repr__(self) -> str:
         raise NotImplementedError()  # TODO __repr__ AuthenticateMessage
