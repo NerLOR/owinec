@@ -12,6 +12,7 @@ import logging
 from socketserver import ThreadingMixIn
 import threading
 import ntlm
+import base64
 
 WSMAN_PORT_HTTP = 5985
 WSMAN_PORT_HTTPS = 5986
@@ -20,18 +21,60 @@ WSMAN_PORT_HTTPS = 5986
 class WSManHandler(BaseHTTPRequestHandler):
     server_version = 'owinec/1.0'
 
+    def parse_request(self):
+        threading.current_thread().setName(self.address_string())
+        return super().parse_request()
+
     def do_GET(self):
+        logger.debug(f'Got GET request from {self.address_string()}, invalid method')
         self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
+        self.end_headers()
         self.wfile.write(b'Method Not Allowed')
 
     def do_PUT(self):
+        logger.debug(f'Got PUT request from {self.address_string()}, invalid method')
         self.send_response(HTTPStatus.METHOD_NOT_ALLOWED)
+        self.end_headers()
         self.wfile.write(b'Method Not Allowed')
 
     def do_POST(self):
-        threading.current_thread().setName(self.client_address[0])
-        logger.debug(f'Got request from {self.client_address[0]}')
+        logger.debug(f'Got request from {self.address_string()}')
+        auth = self.headers['Authorization']
+        if auth is None:
+            logger.info(f'401 Unauthorized - Header field Authorization missing')
+            self.send_response(HTTPStatus.UNAUTHORIZED)
+            self.send_header('WWW-Authenticate', 'Negotiate')
+            self.end_headers()
+            self.wfile.write(b'Header field Authorization missing')
+            return
+
+        auth = auth.split(' ')
+        logger.debug(f'Authentication protocol: {auth[0]}')
+        if auth[0] != 'Negotiate':
+            logger.info(f'401 Unauthorized - Authentication protocol not supported')
+            self.send_response(HTTPStatus.UNAUTHORIZED)
+            self.send_header('WWW-Authenticate', 'Negotiate')
+            self.end_headers()
+            self.wfile.write(b'Authentication protocol not supported')
+            return
+
+        # TODO handle client sessions
+
+        try:
+            negotiate_msg = ntlm.NegotiateMessage.decode(base64.b64decode(auth[1]))
+        except Exception as e:
+            logger.info(f'500 Internal server error while parsing NegotiateMessage - {e}')
+            self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
+            self.send_header('WWW-Authenticate', 'Negotiate')
+            self.end_headers()
+            self.wfile.write(b'Internal server error')
+            return
+
+        # TODO handle request
+
+        logger.info(f'501 Not implemented')
         self.send_response(HTTPStatus.NOT_IMPLEMENTED)
+        self.send_header('WWW-Authenticate', 'Negotiate')
         self.end_headers()
         self.wfile.write(b'Not Implemented')
 
