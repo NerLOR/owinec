@@ -6,7 +6,7 @@
 Web Services Management Protocol Extensions for Windows Vista (MS-WSMV)
 
 | Transport Protocol | Port | Client | Server | Condition                                    |
-|:------------------:|:----:|:------:|:------:|----------------------------------------------|
+|--------------------|:----:|:------:|:------:|----------------------------------------------|
 | HTTP               | 5985 | Yes    | Yes    | Trusted Host *AND* Allow unencrypted traffic |
 | HTTPS              | 5986 | Yes    | Yes    | Cert. CN == Hostname *OR* Trusted Host (?)   |
 
@@ -35,7 +35,7 @@ Web Services Management Protocol Extensions for Windows Vista (MS-WSMV)
     |      +--------------------------------------------------+       |
     |      | NTLMv1 CHALLENGE                                 |       |
     |      +--------------------------------------------------+       |
-    |<-----| 401                                              |-------|
+    |<-----| 401 Unauthorized                                 |-------|
     |      | WWW-Authenticate: Negotiate TlRMTVNT...AAAAAA==  |       |
     |      | Content-Length: 0                                |       |
     |      +--------------------------------------------------+       |
@@ -47,8 +47,14 @@ Web Services Management Protocol Extensions for Windows Vista (MS-WSMV)
     |--------| Authorization: Negotiate TlRMTVNT...7aFDpnnX |-------->|
     |        | Content-Lenght: X                            |         |
     |        +----------------------------------------------+         |
-    |        | SOAP Envalope                                |         |
+    |        | SOAP Envelope                                |         |
     |        +----------------------------------------------+         |
     |                                                                 |
 ```
+
+# References
+
+1. [WS-MAN, Web Services Management](https://www.dmtf.org/standards/ws-man), DMTF
+2. [MS-NLMP, NT LAN Manager (NTML) Authentication Protocol (MS-NLMP)](https://docs.microsoft.com/en-gb/openspecs/windows_protocols/ms-nlmp), Microsoft
+3. [MS-WSMV, Web Services Management Protocol Extensions for Windows Vista](https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv), Microsoft
 
