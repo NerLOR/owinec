@@ -11,6 +11,7 @@ import ipaddress
 import logging
 from socketserver import ThreadingMixIn
 import threading
+import ntlm
 
 WSMAN_PORT_HTTP = 5985
 WSMAN_PORT_HTTPS = 5986
