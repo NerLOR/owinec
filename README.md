@@ -31,22 +31,22 @@ The MS-WSMV protocol stack is structured as follows:
 
 As transport protocol either HTTP or HTTPS may be used:
 
-| Transport Protocol | Port | Source | Collector | Condition                                    |
-|--------------------|:----:|:------:|:---------:|----------------------------------------------|
-| HTTP               | 5985 | Yes    | Yes       | Trusted Host *AND* Allow unencrypted traffic |
-| HTTPS              | 5986 | Yes    | Yes       | Cert. CN == Hostname *OR* Trusted Host (?)   |
+| Transport Protocol | Port | WinRM Client Support | WinRM Server Support | Condition                                    |
+|--------------------|:----:|:--------------------:|:--------------------:|----------------------------------------------|
+| HTTP               | 5985 | Yes                  | Yes                  | Trusted Host *AND* Allow unencrypted traffic |
+| HTTPS              | 5986 | Yes                  | Yes                  | Cert. CN == Hostname *OR* Trusted Host (?)   |
 
 
 As authentication protocol in SOAP all listed below can be used theoretically. In practice, Windows clients only support
 `Negotiate` authentication, which in turn uses NTLMv1.
 
-| Authentication Protocol | Default | Source | Collector  |
-|-------------------------|:-------:|:------:|:----------:|
-| Negotiate (NTLMv1)      | Yes     | Yes    | Yes        |
-| Basic                   | No      | No     | Yes (?)    |
-| CredSSP                 | No      | No (?) | Yes (?)    |
-| Digest                  | Yes     | No (?) | Yes (?)    |
-| Kerberos                | Yes     | No (?) | Yes (?)    |
+| Authentication Protocol | Default | WinRM Client Support | WinRM Server Support  |
+|-------------------------|:-------:|:--------------------:|:---------------------:|
+| Negotiate (NTLMv1)      | Yes     | Yes                  | Yes                   |
+| Basic                   | No      | No                   | Yes (?)               |
+| CredSSP                 | No      | No (?)               | Yes (?)               |
+| Digest                  | Yes     | No (?)               | Yes (?)               |
+| Kerberos                | Yes     | No (?)               | Yes (?)               |
 
 
 ## Sequence Diagram
