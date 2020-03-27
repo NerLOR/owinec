@@ -4,11 +4,11 @@
 **Source Initiated** log collecting from domain-joined or non-domain-joined Windows hosts.
 
 
-# \[MS-WSMV\] Protocol
+# MS-WSMV Protocol
 
 ## Protocol Stack
 
-The \[MS-WSMV\] protocol stack is structured as follows:
+The MS-WSMV protocol stack is structured as follows:
 
 ```
  +--------------+
@@ -38,7 +38,7 @@ As transport protocol either HTTP or HTTPS may be used:
 
 
 As authentication protocol in SOAP all listed below can be used theoretically. In practice, Windows clients only support
-`Negotiate` authentication, which uses NTLMv1.
+`Negotiate` authentication, which in turn uses NTLMv1.
 
 | Authentication Protocol | Default | Source | Collector  |
 |-------------------------|:-------:|:------:|:----------:|
@@ -100,7 +100,7 @@ Content-Length: 0
 Host: collector.local:5985
 ```
 
-```http request
+```http response
 HTTP/1.1 401 
 WWW-Authenticate: Negotiate TlRMTVNTUAACAAAAHgAeADgAAAA1goriYUObmGwEm2EAAAAAAAAAAJgAmABWAAAACgC6RwAAAA9XAEkATgAtAEcAMABGADkAQgBEAEwARgBHAEwARwACAB4AVwBJAE4ALQBHADAARgA5AEIARABMAEYARwBMAEcAAQAeAFcASQBOAC0ARwAwAEYAOQBCAEQATABGAEcATABHAAQAHgBEAEUAUwBLAFQATwBQAC0ANgBFAEYARQBNAEIAQgADAB4ARABFAFMASwBUAE8AUAAtADYARQBGAEUATQBCAEIABwAIAG8+avgiBNYBAAAAAA==
 Server: Microsoft-HTTPAPI/2.0
