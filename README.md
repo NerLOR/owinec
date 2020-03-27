@@ -6,11 +6,11 @@ their events to. Owinec is based on **source initated** log forwarding from eith
 Windows hosts.
 
 
-# MS-WSMV Protocol
+# WS-MAN Protocol
 
 ## Protocol Stack
 
-The MS-WSMV protocol stack is structured as follows:
+The WS-MAN protocol stack is structured as follows:
 
 ```
  +--------------+
@@ -52,13 +52,13 @@ As transport protocol either HTTP or HTTPS may be used:
 As authentication protocol in SOAP all listed below can be used theoretically. In practice, Windows clients only support
 `Negotiate` authentication, which in turn uses NTLMv1.
 
-| Authentication Protocol | Default | WinRM Client Support | WinRM Server Support  |
-|-------------------------|:-------:|:--------------------:|:---------------------:|
-| Negotiate (NTLMv1)      | Yes     | Yes                  | Yes                   |
-| Basic                   | No      | No                   | Yes (?)               |
-| CredSSP                 | No      | No (?)               | Yes (?)               |
-| Digest                  | Yes     | No (?)               | Yes (?)               |
-| Kerberos                | Yes     | No (?)               | Yes (?)               |
+| Authentication Protocol | Allowed by Default | WinRM Client Support | WinRM Server Support  |
+|-------------------------|:------------------:|:--------------------:|:---------------------:|
+| Negotiate (NTLMv1)      | Yes                | Yes                  | Yes                   |
+| Basic                   | No                 | No                   | Yes (?)               |
+| CredSSP                 | No                 | No (?)               | Yes (?)               |
+| Digest                  | Yes                | No (?)               | Yes (?)               |
+| Kerberos                | Yes                | No (?)               | Yes (?)               |
 
 
 ## Sequence Diagram
