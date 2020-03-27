@@ -18,7 +18,7 @@ The MS-WSMV protocol stack is structured as follows:
  +--------------+
  |     SOAP     |
  | +----------+ |
- | |   NTLM   | |
+ | |   NLMP   | |
  | +----------+ |
  +------+-------+
  | HTTP | HTTPS |
@@ -88,7 +88,9 @@ As authentication protocol in SOAP all listed below can be used theoretically. I
     section 2.2.1.3). The payload contains a SOAP envelope with `Action` set to `Enumerate`.
 
 
-## Windows Implementation
+## WinRM Implementation
+
+Windows implements the protocol stack in the WinRM client and server.
 
 ```http request
 POST /wsman/SubscriptionManager/WEC HTTP/1.1
