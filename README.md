@@ -1,7 +1,9 @@
 
 # Open Windows Event Collector
 
-**Source Initiated** log collecting from domain-joined or non-domain-joined Windows hosts.
+**O**pen **Win**dows **E**vent **C**ollector, in short owinec, is a server application, where Windows hosts can forward
+their events to. Owinec is based on **source initated** log forwarding from either domain-joined or non-domain-joined
+Windows hosts.
 
 
 # MS-WSMV Protocol
