@@ -168,7 +168,7 @@ class AVPair:
         self.value = value
 
     @staticmethod
-    def decode(data: bytes, unicode: bool) -> Tuple[AVPair, int]:
+    def decode(data: bytes, charset: str) -> Tuple[AVPair, int]:
         av_id, av_len = struct.unpack('<HH', data[:4])
         if av_id == MsvAvEOL:
             if av_len != 0:
@@ -176,7 +176,7 @@ class AVPair:
             return AVPair(av_id, None), 4
         elif av_id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
                        MsvAvDnsTreeName, MsvAvTargetName):
-            return AVPair(av_id, data[4:4 + av_len].decode(CHARSET_UNICODE if unicode else CHARSET_OEM)), 4 + av_len
+            return AVPair(av_id, data[4:4 + av_len].decode(charset)), 4 + av_len
         elif av_id == MsvAvFlags:
             if av_len != 4:
                 raise AssertionError('Invaild NTLM AVPair (type MsvAvFlags): length has to be 32 bit')
@@ -190,12 +190,12 @@ class AVPair:
         else:
             raise AssertionError('Invalid NTLM AVPair: unexpected error')
 
-    def encode(self, unicode: bool) -> bytes:
+    def encode(self, charset: str) -> bytes:
         if self.id == MsvAvEOL:
             return struct.pack('<HH', self.id, 0)
         elif self.id in (MsvAvNbComputerName, MsvAvNbDomainName, MsvAvDnsComputerName, MsvAvDnsDomainName,
                          MsvAvDnsTreeName, MsvAvTargetName):
-            value_encoded = self.value.encode(CHARSET_UNICODE if unicode else CHARSET_OEM)
+            value_encoded = self.value.encode(charset)
             return struct.pack('<HH', self.id, len(value_encoded)) + value_encoded
         elif self.id == MsvAvFlags:
             return struct.pack('<HHI', self.id, 4, self.value)
@@ -223,18 +223,18 @@ class AVPairList:
         self._pairs = []
 
     @staticmethod
-    def decode(data: bytes, unicode: bool) -> AVPairList:
+    def decode(data: bytes, charset: str) -> AVPairList:
         av_pair_list = AVPairList()
         while True:
-            av, av_len = AVPair.decode(data, unicode)
+            av, av_len = AVPair.decode(data, charset)
             data = data[av_len:]
             if av.id == MsvAvEOL:
                 return av_pair_list
             else:
                 av_pair_list._pairs.append(av)
 
-    def encode(self, unicode: bool) -> bytes:
-        return b''.join([av.encode(unicode) for av in self])
+    def encode(self, charset: str) -> bytes:
+        return b''.join([av.encode(charset) for av in self])
 
     def __iter__(self) -> Iterator[AVPair]:
         return self._pairs.__iter__()
@@ -272,6 +272,15 @@ class Message:
         self.version = Version(10, 0, 0)
         self.flags = NegotiateFlags()
         self.type = msg_type
+
+    @property
+    def charset(self) -> str:
+        if NTLMSSP_NEGOTIATE_UNICODE in self.flags:
+            return CHARSET_UNICODE
+        elif NTLM_NEGOTIATE_OEM in self.flags:
+            return CHARSET_OEM
+        else:
+            raise AssertionError('Invalid charset flags in NTLM message')
 
     @staticmethod
     def decode(data: bytes) -> Message:
@@ -321,9 +330,9 @@ class NegotiateMessage(Message):
         else:
             msg.version = None
         if NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED in msg.flags:
-            msg.domain_name = data[domain_name_offset:domain_name_offset + domain_name_len]
+            msg.domain_name = data[domain_name_offset:domain_name_offset + domain_name_len].decode(msg.charset)
         if NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED in msg.flags:
-            msg.workstation = data[workstation_offset:workstation_offset + workstation_offset]
+            msg.workstation = data[workstation_offset:workstation_offset + workstation_offset].decode(msg.charset)
         return msg
 
     def encode(self) -> bytes:
