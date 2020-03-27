@@ -5,7 +5,7 @@
 # Lorenz Stechauner, 2020
 
 from __future__ import annotations
-from typing import Tuple
+from typing import Tuple, Iterator
 import datetime
 import struct
 
@@ -179,3 +179,51 @@ class AVPair:
 
     def __str__(self) -> str:
         return self.__repr__()
+
+
+class AVPairList:
+    def __init__(self):
+        self._pairs = []
+
+    @staticmethod
+    def decode(data: bytes, unicode: bool) -> AVPairList:
+        av_pair_list = AVPairList()
+        while True:
+            av, av_len = AVPair.decode(data, unicode)
+            data = data[av_len:]
+            if av.id == MsvAvEOL:
+                return av_pair_list
+            else:
+                av_pair_list._pairs.append(av)
+
+    def encode(self, unicode: bool) -> bytes:
+        return b''.join([av.encode(unicode) for av in self])
+
+    def __iter__(self) -> Iterator[AVPair]:
+        return self._pairs.__iter__()
+
+    def __getitem__(self, item: int) -> object:
+        for av in self:
+            if av.id == item:
+                return av.value
+        raise NameError('Attribute in AVPair not found')
+
+    def __setitem__(self, key: int, value):
+        for av in self:
+            if av.id == key:
+                av.value = value
+                return
+        self._pairs.append(AVPair(key, value))
+
+    def __contains__(self, item: int) -> bool:
+        for av in self:
+            if av.id == item:
+                return True
+        return False
+
+    def __repr__(self) -> str:
+        return f'<AVPairList {{{", ".join([str(av) for av in self])}}}>'
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
