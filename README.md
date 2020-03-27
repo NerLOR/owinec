@@ -13,8 +13,42 @@ Web Services Management Protocol Extensions for Windows Vista (MS-WSMV)
 
 | Authentication Protocol | Default | Client | Server  |
 |-------------------------|:-------:|:------:|:-------:|
-| Negotiage (NTLMv1)      | Yes     | Yes    | Yes     |
+| Negotiate (NTLMv1)      | Yes     | Yes    | Yes     |
 | Basic                   | No      | No     | Yes (?) |
 | CredSSP                 | No      | No (?) | Yes (?) |
 | Digest                  | Yes     | No (?) | Yes (?) |
 | Kerberos                | Yes     | No (?) | Yes (?) |
+
+```
++--------+                                                      +-----------+
+| Source |                                                      | Collector |
++--------+                                                      +-----------+
+    |                                                                 |
+    |        +----------------------------------------------+         |
+    |        | NTLMv1 NEGOTIATE                             |         |
+    |        +----------------------------------------------+         |
+    |--------| POST /wsman/SubscriptionManager/WEC          |-------->|
+    |        | Authorization: Negotiate TlRMTVNT...AAAADw== |         |
+    |        | Content-Length: 0                            |         |
+    |        +----------------------------------------------+         |
+    |                                                                 |
+    |      +--------------------------------------------------+       |
+    |      | NTLMv1 CHALLENGE                                 |       |
+    |      +--------------------------------------------------+       |
+    |<-----| 401                                              |-------|
+    |      | WWW-Authenticate: Negotiate TlRMTVNT...AAAAAA==  |       |
+    |      | Content-Length: 0                                |       |
+    |      +--------------------------------------------------+       |
+    |                                                                 |
+    |        +----------------------------------------------+         |
+    |        | NTLMv1 AUTHENTICATE                          |         |
+    |        +----------------------------------------------+         |
+    |        | POST /wsman/SubscriptionManager/WEC          |         |
+    |--------| Authorization: Negotiate TlRMTVNT...7aFDpnnX |-------->|
+    |        | Content-Lenght: X                            |         |
+    |        +----------------------------------------------+         |
+    |        | SOAP Envalope                                |         |
+    |        +----------------------------------------------+         |
+    |                                                                 |
+```
+
