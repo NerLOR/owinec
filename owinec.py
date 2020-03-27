@@ -79,7 +79,7 @@ class WSManHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'Not Implemented')
 
     def send_response(self, code: HTTPStatus, message=None):
-        super().send_response(code, message=message)
+        return super().send_response(code, message=message)
 
     def log_message(self, format, *args):
         return
