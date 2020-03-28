@@ -14,12 +14,9 @@ import threading
 import ntlm
 import base64
 import re
-import requests
 
 WSMAN_PORT_HTTP = 5985
 WSMAN_PORT_HTTPS = 5986
-
-WSMAN_PATTERN = re.compile(r'(https?)://([^:/]+)(:(\d+))?(/.*)')
 
 
 class WSManHandler(BaseHTTPRequestHandler):
@@ -43,34 +40,6 @@ class WSManHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         logger.debug(f'POST {self.path} from {self.address_string()}')
-
-        if forward:
-            headers = {
-                'Content-Length': self.headers['Content-Length'],
-                'Content-Type': self.headers['Content-Type'],
-                'Authorization': self.headers['Authorization']
-            }
-            payload = self.rfile.read(int(self.headers['Content-Length']))
-            url = f'{forward[0]}://{forward[1]}:{forward[2]}{forward[3]}'
-            logger.debug(f'Forwarding request: {url}')
-            print(f'<-AUTH: {headers["Authorization"]}')
-            msg_1 = ntlm.decode_message(base64.b64decode(headers['Authorization'].split(' ')[1]))
-            print(f'<-NTLM: {msg_1}')
-            print(f'<-PAYLOAD: {payload.decode("utf16")}')
-            r = requests.post(url, headers=headers, data=payload)
-            logger.debug(f'Proxy-Reply: {r.status_code}')
-            print(f'->AUTH: {r.headers["WWW-Authenticate"]}')
-            msg_2 = ntlm.decode_message(base64.b64decode(r.headers['WWW-Authenticate'].split(' ')[1]))
-            print(f'->NTLM: {msg_2}')
-            print(f'->PAYLOAD: {r.text}')
-
-            self.send_response(r.status_code)
-            self.send_header('Content-Length', r.headers['Content-Length'])
-            self.send_header('Content-Type', r.headers['Content-Type'] if 'Content-Type' in r.headers else None)
-            self.send_header('WWW-Authenticate', r.headers['WWW-Authenticate'])
-            self.end_headers()
-            self.wfile.write(r.content)
-            return
 
         auth = self.headers['Authorization']
         if auth is None:
@@ -141,8 +110,6 @@ if __name__ == '__main__':
                         help='The ip address to bind and listen to, default is 0.0.0.0')
     parser.add_argument('-P', '--port', type=int,
                         help='The tcp port to bind and listen to, default for http is 5985, for https is 5986')
-    parser.add_argument('-f', '--forward', type=str,
-                        help='Forwards all requests here')
     parser.add_argument('--cert', type=argparse.FileType('r'),
                         help='The certificate file to use for https')
     parser.add_argument('--key', type=argparse.FileType('r'),
@@ -165,18 +132,6 @@ if __name__ == '__main__':
 
     logger.debug('Starting owinec...')
     logger.debug(f'Command line arguments: {args}')
-
-    if args.forward:
-        forward_m = WSMAN_PATTERN.fullmatch(args.forward)
-        if forward_m:
-            forward = (forward_m.group(1),
-                       forward_m.group(2),
-                       forward_m.group(4) or WSMAN_PORT_HTTP if forward_m.group(1) == 'http' else WSMAN_PORT_HTTPS,
-                       forward_m.group(5))
-            logger.info(f'Proxying to {forward[0]}://{forward[1]}:{forward[2]}{forward[3]}')
-        else:
-            logger.critical('Cannot parse --forward argument')
-            exit(1)
 
     if args.protocol in ('http', 'https'):
         logger.debug(f'Using protocol {args.protocol}')
