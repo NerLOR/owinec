@@ -471,18 +471,51 @@ class ChallengeMessage(Message):
         return AuthenticateMessage.from_challenge(self)
 
     def __repr__(self) -> str:
-        return f'<ChallengeMessage {{{str(self.target_name or "*")}, 0x{self.challenge.hex()}, {self.target_info}, ' \
+        return f'<ChallengeMessage {{{str(self.target_name or "*")}, CHALLENGE={self.challenge.hex()}, {self.target_info}, ' \
                f'{repr(self.flags)}, {repr(self.version)}}}>'
 
 
 class AuthenticateMessage(Message):
     def __init__(self):
         super().__init__(AUTHENTICATE_MESSAGE)
+        self.lm_challenge_response = None
+        self.nt_challenge_response = None
+        self.domain_name = None
+        self.user_name = None
+        self.workstation = None
+        self.enc_rand_session_key = None
+        self.mic = None
 
     @staticmethod
     def decode(data: bytes) -> AuthenticateMessage:
-        # TODO decode AuthenticateMessage
-        raise NotImplementedError('AuthenticateMessage.decode is not yet implemented')
+        if not data.startswith(b'NTLMSSP\0'):
+            raise AssertionError('Invalid NTLM message: invalid signature')
+        msg_type, lm_challenge_response_len, lm_challenge_response_max_len, lm_challenge_offset, \
+            nt_challenge_response_len, nt_challenge_response_max_len, nt_challenge_offset, domain_name_len, \
+            domain_name_max_len, domain_name_offset, user_name_len, user_name_max_len, user_name_offset, \
+            workstation_len, workstation_max_len, workstation_offset, enc_rand_sess_key_len, \
+            enc_rand_sess_key_max_len, enc_rand_sess_key_offset, negotiate_flags, version, mic \
+            = struct.unpack('<IHHIHHIHHIHHIHHIHHII8s16s', data[8:88])
+        if msg_type != AUTHENTICATE_MESSAGE:
+            raise AssertionError('Invalid NTLM authenticate message: invalid message type')
+
+        msg = AuthenticateMessage()
+        msg.flags = NegotiateFlags(negotiate_flags)
+        msg.version = Version.decode(version)
+
+        msg.lm_challenge_response = data[lm_challenge_offset:lm_challenge_offset + lm_challenge_response_len]
+        msg.nt_challenge_response = data[nt_challenge_offset:nt_challenge_offset + nt_challenge_response_len]
+
+        msg.domain_name = data[domain_name_offset:domain_name_offset + domain_name_len].decode(msg.charset)
+        msg.user_name = data[user_name_offset:user_name_offset + user_name_len].decode(msg.charset)
+        msg.workstation = data[workstation_offset:workstation_offset + workstation_len].decode(msg.charset)
+
+        msg.enc_rand_session_key = data[enc_rand_sess_key_offset:enc_rand_sess_key_offset + enc_rand_sess_key_len]
+        msg.mic = mic
+
+        # TODO decode message
+
+        return msg
 
     def encode(self) -> bytes:
         # TODO encode AuthenticateMessage
@@ -494,8 +527,10 @@ class AuthenticateMessage(Message):
         raise NotImplementedError('AuthenticateMessage.from_challenge is not yet implemented')
 
     def __repr__(self) -> str:
-        # TODO __repr__ AuthenticateMessage
-        raise NotImplementedError('AuthenticateMessage.__repr__ is not yet implemented')
+        return f'<AuthenticateMessage {{{self.user_name or "*"}@{self.workstation or "*"}@{self.domain_name or "*"}, ' \
+               f'LM={self.lm_challenge_response.hex()}, NT={self.nt_challenge_response.hex()}, ' \
+               f'ENC-RAND-SESSION-KEY={self.enc_rand_session_key.hex()}, MIC={self.mic.hex()}, ' \
+               f'{repr(self.flags)}, {repr(self.version)}}}>'
 
 
 def decode_message(data: bytes) -> Message:
