@@ -66,7 +66,7 @@ MsvAvFlags_SPN_UNTRUSTED = 0x00000004
 def _unpack_filetime(data: bytes) -> datetime.datetime:
     """
     >>> _unpack_filetime(b'\\xd0\\x8c\\xdd\\xb8\\xec\\x02\\xd6\\x01')
-    datetime.datetime(2020, 3, 25, 21, 31, 19, 107298)
+    datetime.datetime(2020, 3, 25, 21, 31, 19, 107297)
     """
     return datetime.datetime(1601, 1, 1) + datetime.timedelta(microseconds=struct.unpack('<Q', data)[0] // 10)
 
@@ -190,7 +190,7 @@ class AVPair:
         elif av_id == MsvAvTimestamp:
             if av_len != 8:
                 raise AssertionError('Invalid NTLM AVPair (type MsvAvTimestamp): length has to be 64 bit')
-            return AVPair(av_id, _unpack_filetime(data[4:12])), 12
+            return AVPair(av_id, data[4:12]), 12
         elif av_id in (MsvAvSingleHost, MsvAvChannelBindings):
             return AVPair(av_id, data[4:4 + av_len]), 4 + av_len
         else:
@@ -206,7 +206,7 @@ class AVPair:
         elif self.id == MsvAvFlags:
             return struct.pack('<HHI', self.id, 4, self.value)
         elif self.id == MsvAvTimestamp:
-            return struct.pack('<HH', self.id, 8) + _pack_filetime(self.value)
+            return struct.pack('<HH', self.id, 8) + self.value
         elif self.id in (MsvAvSingleHost, MsvAvChannelBindings):
             return struct.pack('<HH', self.id, len(self.value)) + self.value
         else:
@@ -215,7 +215,10 @@ class AVPair:
     def __repr__(self) -> str:
         for name, value in globals().items():
             if name.startswith('MsvAv') and '_' not in name and value == self.id:
-                return f'{name}: {repr(self.value)}'
+                if self.id == MsvAvTimestamp:
+                    return f'{name}: {str(_unpack_filetime(self.value))})'
+                else:
+                    return f'{name}: {repr(self.value)}'
         raise ReferenceError('Invalid NTLM AVPair id')
 
     def __str__(self) -> str:
@@ -460,7 +463,7 @@ class ChallengeMessage(Message):
             msg.target_info[MsvAvDnsDomainName] = computer_name or platform.node()
         msg.target_info[MsvAvNbComputerName] = computer_name.upper() if computer_name else platform.node().upper()
         msg.target_info[MsvAvDnsComputerName] = computer_name or platform.node()
-        msg.target_info[MsvAvTimestamp] = datetime.datetime.now()
+        msg.target_info[MsvAvTimestamp] = _pack_filetime(datetime.datetime.now())
 
         return msg
 
