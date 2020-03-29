@@ -11,19 +11,18 @@ import ipaddress
 import logging
 from socketserver import ThreadingMixIn
 import threading
-import ntlm
-import base64
-import re
+import wsman
+import xml.etree.ElementTree as ET
 
 WSMAN_PORT_HTTP = 5985
 WSMAN_PORT_HTTPS = 5986
 
 
-class WSManHandler(BaseHTTPRequestHandler):
+class SoapHandler(BaseHTTPRequestHandler):
     server_version = 'owinec/1.0'
 
     def parse_request(self):
-        threading.current_thread().setName(self.address_string())
+        threading.current_thread().setName(f'{self.client_address[0]}:{self.client_address[1]}')
         return super().parse_request()
 
     def do_GET(self):
@@ -41,53 +40,80 @@ class WSManHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         logger.debug(f'POST {self.path} from {self.address_string()}')
 
-        auth = self.headers['Authorization']
-        if auth is None:
-            logger.info(f'POST {self.path} - 401 Unauthorized - Header field Authorization missing')
+        if isinstance(self.connection, ssl.SSLSocket):
+            # Certificate Authentication
+            # TODO check certificate
+            pass
+        else:
+            # Other Authentication Protocols are not supported
+            auth = self.headers['Authorization'] if 'Authorization' in self.headers else None
+            logger.warning(f'401 Unauthorized - Unsupported authentication protocol: {auth}')
             self.send_response(HTTPStatus.UNAUTHORIZED)
-            self.send_header('WWW-Authenticate', 'Negotiate')
+            self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
             self.end_headers()
-            self.wfile.write(b'Header field Authorization missing')
+            self.wfile.write(b'Unauthorized - Unsupported authentication protocol - Use https instead')
             return
 
-        auth = auth.split(' ')
-        logger.debug(f'Authentication protocol: {auth[0]}')
-        if auth[0] != 'Negotiate':
-            logger.info(f'POST {self.path} - 401 Unauthorized - Authentication protocol not supported')
-            self.send_response(HTTPStatus.UNAUTHORIZED)
-            self.send_header('WWW-Authenticate', 'Negotiate')
+        content_length = int(self.headers['Content-Length']) if 'Content-Length' in self.headers else 0
+        content_type = self.headers['Content-Type'].split(';')
+        charset = None
+        if content_type[1].strip().startswith('charset='):
+            charset = content_type[1].strip()[8:]
+
+        if content_length == 0:
+            self.send_response(HTTPStatus.LENGTH_REQUIRED)
+            self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
             self.end_headers()
-            self.wfile.write(b'Authentication protocol not supported')
+            self.wfile.write(b'Length Required - This request requires a payload')
             return
 
-        # TODO handle client sessions
-        payload = self.rfile.read(int(self.headers['Content-Length'])).decode('utf16')
-        print(payload)
+        if self.path.startswith('/owinec/subscriptions/'):
+            # Subscriptions
+            print(self.headers)
+            payload = self.rfile.read(content_length)
+            if charset == 'UTF-16':
+                text = payload.decode('utf16')
+            else:
+                text = payload.decode('utf8')
 
-        try:
-            msg = ntlm.decode_message(base64.b64decode(auth[1]))
-        except Exception as e:
-            logger.exception(f'POST {self.path} - 500 Internal server error while parsing NTLM message - '
-                             f'{e.__class__.__name__}: {e}')
-            self.send_response(HTTPStatus.INTERNAL_SERVER_ERROR)
-            self.send_header('WWW-Authenticate', 'Negotiate')
-            self.end_headers()
-            self.wfile.write(b'Internal server error while parsing NTLM message')
-            return
+            print(text)
 
-        if msg.type == ntlm.NEGOTIATE_MESSAGE:
-            logger.debug(f'NEGOTIATE_MESSAGE received')
-            challenge_msg = msg.response(None, None, None)
-            self.send_response(HTTPStatus.UNAUTHORIZED)
-            self.send_header('WWW-Authenticate', 'Negotiate ' + base64.b64encode(challenge_msg.encode()).decode('ascii'))
+            self.send_response(HTTPStatus.CONTINUE)
+            self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
+            self.send_header('Content-Type', 'application/soap+xml;charset=UTF-16')
+            self.send_header('Connection', 'Keep-Alive')
             self.end_headers()
+            self.wfile.flush()
+
+        payload = self.rfile.read(content_length)
+        if charset == 'UTF-16':
+            text = payload.decode('utf16')
+        else:
+            text = payload.decode('utf8')
+
+        print(text)
+        envelope = wsman.Envelope.load(text)
+        logger.debug(f'ResourceURI={envelope.header.resource_uri}')
+        logger.debug(f'Action={envelope.header.action}')
+        if envelope.header.resource_uri == wsman.SUBSCRIPTION and envelope.header.action == wsman.ENUMERATE:
+            self.do_enumerate()
+            # Initial request from client
+            subscription = wsman.Subscription('Test Subscription 1', 'https://picard:5986/owinec/subscriptions/s1',
+                                              ['4ab167dfcbbda8d6225889b05937112062ea1152'])
+            response = wsman.get_enumeration_response(envelope, subscription)
+            payload = ET.tostring(response, encoding='unicode').encode('utf8')
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
+            self.send_header('Content-Type', 'application/soap+xml;charset=UTF-8')
+            self.send_header('Content-Length', len(payload))
+            self.end_headers()
+            self.wfile.write(payload)
             return
-        elif msg.type == ntlm.AUTHENTICATE_MESSAGE:
-            logger.debug(f'AUTHENTICATE_MESSAGE received')
 
         logger.info(f'POST {self.path} - 501 Not implemented')
         self.send_response(HTTPStatus.NOT_IMPLEMENTED)
-        self.send_header('WWW-Authenticate', 'Negotiate')
+        self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
         self.end_headers()
         self.wfile.write(b'Not Implemented')
 
@@ -96,6 +122,17 @@ class WSManHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format, *args):
         return
+
+    def do_enumerate(self):
+        pass
+
+    def do_heartbeat(self):
+        pass
+
+
+class WSManHandler(SoapHandler):
+    def do_enumerate(self):
+        pass
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -146,8 +183,9 @@ if __name__ == '__main__':
             httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True,
                                            certfile=args.cert.name, keyfile=args.key.name)
         else:
-            # TODO remove warning for http payload encryption
-            logger.warning('If using http, the client will send encrypted payload, that cannot be decrypted')
+            # TODO implement http client handling
+            logger.critical('Http is not supported and not secure - use https instead')
+            exit(1)
 
         logger.info(f'Listening on {args.protocol}://{bind_address}:{bind_port}/')
 

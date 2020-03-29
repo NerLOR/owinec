@@ -1,0 +1,87 @@
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+            xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+            xmlns:n="http://schemas.xmlsoap.org/ws/2004/09/enumeration"
+            xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+            xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd"
+            xmlns:b="http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd">
+    <s:Header>
+        <p:OperationID>uuid:43F96ABD-904B-4231-8AD5-FF82B28A0641</p:OperationID>
+        <a:RelatesTo>uuid:6DCC900B-E4EF-4385-8F86-CEC23DEC1E33</a:RelatesTo>
+        <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+        <a:Action>http://schemas.xmlsoap.org/ws/2004/09/enumeration/EnumerateResponse</a:Action>
+        <a:MessageID>uuid:6aa70f24-c309-421e-8c2d-98010a1e5ea5</a:MessageID>
+        <p:SequenceId>1</p:SequenceId>
+    </s:Header>
+    <s:Body>
+        <n:EnumerateResponse>
+            <n:EnumerationContext/>
+            <w:Items>
+                <m:Subscription xmlns:m="http://schemas.microsoft.com/wbem/wsman/1/subscription">
+                    <m:Version>uuid:75272085-1748-4772-B742-9B757E69AB9B</m:Version>
+                    <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+                                xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+                                xmlns:n="http://schemas.xmlsoap.org/ws/2004/09/enumeration"
+                                xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+                                xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd"
+                                xmlns:b="http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd">
+                        <s:Header>
+                            <a:To>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:To>
+                            <w:ResourceURI>http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog</w:ResourceURI>
+                            <a:ReplyTo>
+                                <a:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:Address>
+                            </a:ReplyTo>
+                            <a:Action>http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe</a:Action>
+                            <w:MaxEnvelopeSize>512000</w:MaxEnvelopeSize>
+                            <a:MessageID>uuid:69b4f30d-4cc5-4986-8802-48e7159c4d96</a:MessageID>
+                            <p:OperationID>uuid:d54eea0e-56d1-4d3e-88a1-783500a4dbc7</p:OperationID>
+                            <w:OptionSet xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                                <w:Option Name="SubscriptionName">Test Subscription 1</w:Option>
+                                <w:Option Name="Compression">SLDC</w:Option>
+                                <w:Option Name="CDATA" xsi:nil="true"/>
+                                <w:Option Name="ContentFormat">RenderedText</w:Option>
+                                <w:Option Name="IgnoreChannelError" xsi:nil="true"/>
+                            </w:OptionSet>
+                        </s:Header>
+                        <s:Body>
+                            <e:Subscribe>
+                                <e:EndTo>
+                                    <a:Address>https://picard:5986/subscription1</a:Address>
+                                    <a:ReferenceProperties>
+                                        <e:Identifier>75272085-1748-4772-B742-9B757E69AB9B</e:Identifier>
+                                    </a:ReferenceProperties>
+                                </e:EndTo>
+                                <e:Delivery Mode="http://schemas.dmtf.org/wbem/wsman/1/wsman/Events">
+                                    <w:Heartbeats>PT3600S</w:Heartbeats>
+                                    <e:NotifyTo>
+                                        <a:Address>https://picard:5986/subscription1</a:Address>
+                                        <a:ReferenceProperties>
+                                            <e:Identifier>75272085-1748-4772-B742-9B757E69AB9B</e:Identifier>
+                                        </a:ReferenceProperties>
+                                    </e:NotifyTo>
+                                    <w:ConnectionRetry Total="5">PT60S</w:ConnectionRetry>
+                                    <w:MaxTime>PT1S</w:MaxTime>
+                                    <w:MaxEnvelopeSize Poilce="Notify">512000</w:MaxEnvelopeSize>
+                                    <w:ContentEncoding>UTF-8</w:ContentEncoding>
+                                </e:Delivery>
+                                <w:Filter Dialict="http://schemas.microsoft.com/win/2004/08/events/eventquery">
+                                    <QueryList>
+                                        <Query Id="0">
+                                            <Select Path="Security">*[System[(Level=1 or Level=2 or Level=3 or Level=4
+                                                or Level=0 or Level=5)]]
+                                            </Select>
+                                            <Select Path="System">*[System[(Level=1 or Level=2 or Level=3 or Level=4 or
+                                                Level=0 or Level=5)]]
+                                            </Select>
+                                        </Query>
+                                    </QueryList>
+                                </w:Filter>
+                                <SendBookmarks/>
+                            </e:Subscribe>
+                        </s:Body>
+                    </s:Envelope>
+                </m:Subscription>
+            </w:Items>
+            <w:EndOfSequence/>
+        </n:EnumerateResponse>
+    </s:Body>
+</s:Envelope>
