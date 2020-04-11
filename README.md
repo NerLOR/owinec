@@ -13,6 +13,7 @@ Computer Configuration/Administative Templates/Windows Components/ Event Forward
 HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\EventLog\EventForwarding\SubscriptionManager
 ```
 
+Verify that `NT Authority\Network Service` is a member of the `Event Log Readers` group on the source computer.
 
 # WS-MAN Protocol
 

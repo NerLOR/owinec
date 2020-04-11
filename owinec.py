@@ -134,13 +134,11 @@ class SoapHandler(BaseHTTPRequestHandler):
 class WSManHandler(SoapHandler):
     def do_enumerate(self, envelope: wsman.EnumerateSubscriptionEnvelope) -> str:
         subscription = wsman.SubscriptionEnvelope(
-            'subscription1', 'Test Subscription 1', 'https://chakotay:5986/owinec/subscriptions/s1',
+            'subscription2', 'Test Subscription 2', 'https://chakotay:5986/owinec/subscriptions/s2',
             [('Security', '*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]'),
              ('System', '*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]')],
             ['4ab167dfcbbda8d6225889b05937112062ea1152']
         )
-        response = wsman.EnumerateResponseEnvelope(subscription, envelope.operation_id, relates_to=envelope.id)
-        response.to = envelope.reply_to
         subscription.bookmarks = False
         subscription.read_existing_events = True
         subscription.content_format = 'Raw'
@@ -148,6 +146,9 @@ class WSManHandler(SoapHandler):
         subscription.connection_retries = 60
         subscription.connection_retries_wait = 10.0
         subscription.heartbeat_sec = 60.0
+        subscription.max_envelope_size = 10 * 1024 * 1024
+        response = wsman.EnumerateResponseEnvelope(subscription, envelope.operation_id, relates_to=envelope.id)
+        response.to = envelope.reply_to
         return response.dump()
 
     def do_heartbeat(self, envelope: wsman.HeartbeatEnvelope) -> str:
@@ -155,7 +156,8 @@ class WSManHandler(SoapHandler):
         return response.dump()
 
     def do_events(self, envelope: wsman.EventsEnvelope) -> str:
-        logger.info(f'Got {len(envelope.events)} events')
+        for e in envelope.events:
+            print(e)
         response = wsman.AckEnvelope(envelope.id, envelope.operation_id)
         return response.dump()
 

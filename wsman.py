@@ -620,7 +620,7 @@ class EventsEnvelope(Envelope):
         if action != ACTION_EVENTS:
             raise AssertionError()
 
-        envelope = HeartbeatEnvelope(
+        envelope = EventsEnvelope(
             machine_id=machine_id,
             message_id=message_id,
             locale=locale,
