@@ -5,6 +5,14 @@
 their events to. Owinec is based on **source initated** log forwarding from either domain-joined or non-domain-joined
 Windows hosts.
 
+```
+Computer Configuration/Administative Templates/Windows Components/ Event Forwarding/ Configure Target Subscription Manager
+```
+
+```
+HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\EventLog\EventForwarding\SubscriptionManager
+```
+
 
 # WS-MAN Protocol
 

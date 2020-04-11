@@ -61,7 +61,7 @@ class SoapHandler(BaseHTTPRequestHandler):
             charset = content_type[1].strip()[8:]
 
         if content_length == 0:
-            logger.warning(f'POST {self.path} - {HTTPStatus.LENGTH_REQUIRED} Length Required')
+            logger.warning(f'{self.path} - {HTTPStatus.LENGTH_REQUIRED} Length Required')
             self.send_response(HTTPStatus(HTTPStatus.LENGTH_REQUIRED))
             self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
             self.send_header('Content-Length', '0')
@@ -69,24 +69,6 @@ class SoapHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'Length Required - This request requires a payload')
             return
-
-        if self.path.startswith('/owinec/subscriptions/'):
-            # Subscriptions
-            print(self.headers)
-            payload = self.rfile.read(content_length)
-            if charset == 'UTF-16':
-                text = payload.decode('utf16')
-            else:
-                text = payload.decode('utf8')
-
-            print(text)
-
-            self.send_response(HTTPStatus(HTTPStatus.CONTINUE))
-            self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
-            self.send_header('Content-Type', 'application/soap+xml;charset=UTF-16')
-            self.send_header('Connection', 'Keep-Alive')
-            self.end_headers()
-            self.wfile.flush()
 
         payload = self.rfile.read(content_length)
         if charset == 'UTF-16':
@@ -96,32 +78,42 @@ class SoapHandler(BaseHTTPRequestHandler):
 
         envelope = wsman.Envelope.load(ET.fromstring(text))
         logger.debug(f'Action={envelope.action}, ResourceURI={envelope.resource_uri}')
+        for error in envelope.errors:
+            logger.error(f'From {error["machine"]} (code {error["code"]}): {error["text"]}')
+            if error['code'] == 5004 or error['code'] == 1818:
+                logger.error(f'Tip: Verify that \'NT Authority\\Network Service\' is a member of the '
+                             f'\'Event Log Readers\' group on the source computer.')
+
+        response = None
         if envelope.action == wsman.ACTION_END and envelope.resource_uri == wsman.RESOURCE_URI_FULL_DUPLEX:
-            logger.info(f'POST {self.path} - {envelope.action}/{envelope.resource_uri} - 200 OK')
-            self.send_response(HTTPStatus(HTTPStatus.OK))
-            self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
-            self.send_header('Content-Length', '0')
-            self.send_header('Connection', 'close')
-            self.end_headers()
-            return
+            response = ''
         elif envelope.action == wsman.ACTION_ENUMERATE and envelope.resource_uri == wsman.RESOURCE_URI_SUBSCRIPTION:
             # Initial request from client
-            payload = self.do_enumerate(envelope).encode('utf8')
-            logger.info(f'POST {self.path} - {envelope.action}/{envelope.resource_uri} - 200 OK')
-            self.send_response(HTTPStatus(HTTPStatus.OK))
+            response = self.do_enumerate(envelope)
+        elif envelope.action == wsman.ACTION_HEARTBEAT and envelope.resource_uri is None:
+            response = self.do_heartbeat(envelope)
+        elif envelope.action == wsman.ACTION_END_SUBSCRIPTION and envelope.resource_uri is None:
+            response = ''
+        elif envelope.action == wsman.ACTION_EVENTS and envelope.resource_uri is None:
+            response = self.do_events(envelope)
+        else:
+            logger.info(f'{self.path} - {envelope.action}/{envelope.resource_uri} - 501 Not implemented')
+            logger.warning(f'Envelope not implemented: {text}')
+            self.send_response(HTTPStatus(HTTPStatus.NOT_IMPLEMENTED))
             self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
-            self.send_header('Content-Type', 'application/soap+xml;charset=UTF-8')
-            self.send_header('Content-Length', str(len(payload)))
             self.end_headers()
-            self.wfile.write(payload)
+            self.wfile.write(b'Not Implemented')
             return
 
-        logger.info(f'POST {self.path} - {envelope.action}/{envelope.resource_uri} - 501 Not implemented')
-        print(text)
-        self.send_response(HTTPStatus(HTTPStatus.NOT_IMPLEMENTED))
+        response = response.encode('utf8')
+        logger.info(f'{self.path} - {envelope.action}/{envelope.resource_uri}')
+        self.send_response(HTTPStatus(HTTPStatus.OK))
         self.send_header('WWW-Authenticate', 'http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual')
+        self.send_header('Content-Type', 'application/soap+xml;charset=UTF-8')
+        self.send_header('Content-Length', str(len(response)))
+        self.send_header('Connection', 'Keep-Alive')
         self.end_headers()
-        self.wfile.write(b'Not Implemented')
+        self.wfile.write(response)
 
     def send_response(self, code: HTTPStatus, message=None):
         return super().send_response(code, message=message)
@@ -135,20 +127,36 @@ class SoapHandler(BaseHTTPRequestHandler):
     def do_heartbeat(self, envelope: wsman.HeartbeatEnvelope) -> str:
         pass
 
+    def do_events(self, envelope: wsman.EventsEnvelope) -> str:
+        pass
+
 
 class WSManHandler(SoapHandler):
     def do_enumerate(self, envelope: wsman.EnumerateSubscriptionEnvelope) -> str:
         subscription = wsman.SubscriptionEnvelope(
-            'Test Subscription 1', 'https://chakotay:5986/wsman/owinec/subscriptions/s1',
-            [('Security', '*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]')],
+            'subscription1', 'Test Subscription 1', 'https://chakotay:5986/owinec/subscriptions/s1',
+            [('Security', '*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]'),
+             ('System', '*[System[(Level=1 or Level=2 or Level=3 or Level=4 or Level=0 or Level=5)]]')],
             ['4ab167dfcbbda8d6225889b05937112062ea1152']
         )
         response = wsman.EnumerateResponseEnvelope(subscription, envelope.operation_id, relates_to=envelope.id)
         response.to = envelope.reply_to
+        subscription.bookmarks = False
+        subscription.read_existing_events = True
+        subscription.content_format = 'Raw'
+        subscription.max_time = 0.0
+        subscription.connection_retries = 60
+        subscription.connection_retries_wait = 10.0
+        subscription.heartbeat_sec = 60.0
         return response.dump()
 
     def do_heartbeat(self, envelope: wsman.HeartbeatEnvelope) -> str:
-        response = wsman.AckEnvelope()
+        response = wsman.AckEnvelope(envelope.id, envelope.operation_id)
+        return response.dump()
+
+    def do_events(self, envelope: wsman.EventsEnvelope) -> str:
+        logger.info(f'Got {len(envelope.events)} events')
+        response = wsman.AckEnvelope(envelope.id, envelope.operation_id)
         return response.dump()
 
 

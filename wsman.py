@@ -5,7 +5,7 @@
 # Lorenz Stechauner, 2020
 
 from __future__ import annotations
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import xml.etree.ElementTree as ET
 import re
 import uuid
@@ -37,6 +37,10 @@ ACTION_ENUMERATE_RESPONSE = 'http://schemas.xmlsoap.org/ws/2004/09/enumeration/E
 ACTION_SUBSCRIBE = 'http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe'
 ACTION_END = 'http://schemas.microsoft.com/wbem/wsman/1/wsman/End'
 ACTION_HEARTBEAT = 'http://schemas.dmtf.org/wbem/wsman/1/wsman/Heartbeat'
+ACTION_ACK = 'http://schemas.dmtf.org/wbem/wsman/1/wsman/Ack'
+ACTION_END_SUBSCRIPTION = 'http://schemas.xmlsoap.org/ws/2004/08/eventing/SubscriptionEnd'
+ACTION_EVENTS = 'http://schemas.dmtf.org/wbem/wsman/1/wsman/Events'
+ACTION_EVENT = 'http://schemas.dmtf.org/wbem/wsman/1/wsman/Event'
 
 RESOURCE_URI_SUBSCRIPTION = 'http://schemas.microsoft.com/wbem/wsman/1/SubscriptionManager/Subscription'
 RESOURCE_URI_EVENT_LOG = 'http://schemas.microsoft.com/wbem/wsman/1/windows/EventLog'
@@ -63,7 +67,7 @@ class Action:
             if name.startswith('ACTION_') and value == identifier:
                 self.id = identifier
                 return
-        raise NameError(f'Invalid action identifier: {self.id}')
+        raise NameError(f'Invalid action identifier: {identifier}')
 
     def __eq__(self, other):
         return self.id == other
@@ -84,7 +88,7 @@ class ResourceURI:
             if name.startswith('RESOURCE_URI_') and value == identifier:
                 self.id = identifier
                 return
-        raise NameError(f'Invalid resource uri identifier: {self.id}')
+        raise NameError(f'Invalid resource uri identifier: {identifier}')
 
     def __eq__(self, other):
         return self.id == other
@@ -106,25 +110,48 @@ class Envelope:
         self.operation_id = operation_id or f'uuid:{uuid.uuid4()}'
         self.id = message_id or f'uuid:{uuid.uuid4()}'
         self.sequence_id = 1
+        self.errors = []
+
+    @staticmethod
+    def get_errors(tree: ET.Element) -> List[Dict[str, str or int]]:
+        errors = []
+        for error in tree.iterfind('./s:Body/*/f:WSManFault',
+                                  {**namespace, 'f': 'http://schemas.microsoft.com/wbem/wsman/1/wsmanfault'}):
+            code = int(error.get('Code'))
+            machine = error.get('Machine')
+            text = ''
+            for t in error.itertext():
+                text += t + ' '
+            text = re.sub(r'\s+', ' ', text.strip())
+            errors.append({'code': code, 'machine': machine, 'text': text})
+        return errors
 
     @staticmethod
     def load(tree: ET.Element) -> Envelope:
         envelope = tree
-        action = envelope.find('s:Header/a:Action', namespace)
+        action = envelope.find('./s:Header/a:Action', namespace)
         action = action.text.strip() if action is not None else None
-        resource_uri = envelope.find('s:Header/w:ResourceURI', namespace)
+        resource_uri = envelope.find('./s:Header/w:ResourceURI', namespace)
         resource_uri = resource_uri.text.strip() if resource_uri is not None else None
-        message_id = envelope.find('s:Header/a:MessageID', namespace)
+        message_id = envelope.find('./s:Header/a:MessageID', namespace)
         message_id = message_id.text.strip() if message_id is not None else None
-        operation_id = envelope.find('s:Header/p:OperationID', namespace)
+        operation_id = envelope.find('./s:Header/p:OperationID', namespace)
         operation_id = operation_id.text.strip() if operation_id is not None else None
 
-        if action == ACTION_ENUMERATE:
+        if action == ACTION_ENUMERATE and resource_uri == RESOURCE_URI_SUBSCRIPTION:
             return EnumerateSubscriptionEnvelope.load(tree)
-        elif action == ACTION_ENUMERATE_RESPONSE:
+        elif action == ACTION_ENUMERATE_RESPONSE and resource_uri is None:
             return EnumerateResponseEnvelope.load(tree)
-        else:
-            return Envelope(action, resource_uri, operation_id, message_id)
+        elif action == ACTION_HEARTBEAT and resource_uri is None:
+            return HeartbeatEnvelope.load(tree)
+        elif action == ACTION_END and resource_uri == RESOURCE_URI_FULL_DUPLEX:
+            pass  # TODO
+        elif action == ACTION_EVENTS:
+            return EventsEnvelope.load(tree)
+
+        envelope = Envelope(action, resource_uri, operation_id, message_id)
+        envelope.errors = Envelope.get_errors(tree)
+        return envelope
 
     def xml(self) -> ET.Element:
         pass
@@ -157,35 +184,35 @@ class EnumerateSubscriptionEnvelope(Envelope):
     def load(tree: ET.Element) -> EnumerateSubscriptionEnvelope:
         envelope = tree
 
-        resource_uri = envelope.find('s:Header/w:ResourceURI', namespace)
+        resource_uri = envelope.find('./s:Header/w:ResourceURI', namespace)
         resource_uri = resource_uri.text.strip() if resource_uri is not None else None
-        action = envelope.find('s:Header/a:Action', namespace)
+        action = envelope.find('./s:Header/a:Action', namespace)
         action = action.text.strip() if action is not None else None
-        message_id = envelope.find('s:Header/a:MessageID', namespace)
+        message_id = envelope.find('./s:Header/a:MessageID', namespace)
         message_id = message_id.text.strip() if message_id is not None else None
-        operation_id = envelope.find('s:Header/p:OperationID', namespace)
+        operation_id = envelope.find('./s:Header/p:OperationID', namespace)
         operation_id = operation_id.text.strip() if operation_id is not None else None
 
-        to = envelope.find('s:Header/a:To', namespace)
+        to = envelope.find('./s:Header/a:To', namespace)
         to = to.text.strip() if to is not None else None
-        machine_id = envelope.find('s:Header/m:MachineID',
+        machine_id = envelope.find('./s:Header/m:MachineID',
                                    {**namespace, 'm': 'http://schemas.microsoft.com/wbem/wsman/1/machineid'})
         machine_id = machine_id.text.strip() if machine_id is not None else None
-        reply_to = envelope.find('s:Header/a:ReplyTo/a:Address', namespace)
+        reply_to = envelope.find('./s:Header/a:ReplyTo/a:Address', namespace)
         reply_to = reply_to.text.strip() if reply_to is not None else None
-        max_envelope_size = envelope.find('s:Header/w:MaxEnvelopeSize', namespace)
+        max_envelope_size = envelope.find('./s:Header/w:MaxEnvelopeSize', namespace)
         max_envelope_size = int(max_envelope_size.text.strip()) if max_envelope_size is not None else None
-        locale = envelope.find('s:Header/w:Locale', namespace)
+        locale = envelope.find('./s:Header/w:Locale', namespace)
         locale = locale.get('{http://www.w3.org/XML/1998/namespace}lang') if locale is not None else None
-        data_locale = envelope.find('s:Header/p:DataLocale', namespace)
+        data_locale = envelope.find('./s:Header/p:DataLocale', namespace)
         data_locale = data_locale.get('{http://www.w3.org/XML/1998/namespace}lang') if data_locale is not None else None
-        session_id = envelope.find('s:Header/p:SessionId', namespace)
+        session_id = envelope.find('./s:Header/p:SessionId', namespace)
         session_id = session_id.text.strip() if session_id is not None else None
-        sequence_id = envelope.find('s:Header/p:SequenceId', namespace)
+        sequence_id = envelope.find('./s:Header/p:SequenceId', namespace)
         sequence_id = int(sequence_id.text.strip()) if sequence_id is not None else None
-        operation_timeout = envelope.find('s:Header/w:OperationTimeout', namespace)
+        operation_timeout = envelope.find('./s:Header/w:OperationTimeout', namespace)
         operation_timeout = _get_time(operation_timeout.text.strip()) if operation_timeout is not None else None
-        enumerate_max_elements = envelope.find('s:Body/n:Enumerate/w:MaxElements', namespace)
+        enumerate_max_elements = envelope.find('./s:Body/n:Enumerate/w:MaxElements', namespace)
         enumerate_max_elements = int(enumerate_max_elements.text.strip()) if enumerate_max_elements is not None else None
 
         if resource_uri != RESOURCE_URI_SUBSCRIPTION:
@@ -207,6 +234,7 @@ class EnumerateSubscriptionEnvelope(Envelope):
         envelope.max_envelope_size = max_envelope_size
         envelope.sequence_id = sequence_id
         envelope.enumerate_max_elements = enumerate_max_elements
+        envelope.errors = Envelope.get_errors(tree)
         return envelope
 
     def xml(self) -> ET.Element:
@@ -222,8 +250,8 @@ class EnumerateSubscriptionEnvelope(Envelope):
 
 
 class SubscriptionEnvelope(Envelope):
-    def __init__(self, name: str, address: str, queries: List[Tuple[str, str]], issuer_thumbprints: List[str],
-                 operation_id: str = None, message_id: str = None):
+    def __init__(self, subscription_id: str, name: str, address: str, queries: List[Tuple[str, str]],
+                 issuer_thumbprints: List[str], operation_id: str = None, message_id: str = None):
         super().__init__(ACTION_SUBSCRIBE, RESOURCE_URI_EVENT_LOG, operation_id, message_id)
         self.to = ADDRESS_ANONYMOUS
         self.reply_to = ADDRESS_ANONYMOUS
@@ -233,11 +261,11 @@ class SubscriptionEnvelope(Envelope):
         self.name = name
         self.compression = None  # None or 'SLDC'
         self.cdata = None
-        self.content_format = 'RenderedText'  # RenderedText or Raw
+        self.content_format = 'Raw'  # RenderedText or Raw
         self.ignore_channel_error = None
         self.read_existing_events = False
         self.address = address
-        self.reference = str(uuid.uuid4())
+        self.reference = subscription_id
         self.heartbeat_sec = 3600.0
         self.issuer_thumbprints = issuer_thumbprints
         self.connection_retries = 5
@@ -419,11 +447,200 @@ class EnumerateResponseEnvelope(Envelope):
 
 
 class HeartbeatEnvelope(Envelope):
-    pass
+    def __init__(self, identifier: str, operation_id: str, locale: str, data_locale: str, session_id: str,
+                 operation_timeout: float = 60.0, machine_id: str = None, message_id: str = None):
+        super().__init__(ACTION_HEARTBEAT, None, operation_id, message_id)
+        self.machine_id = machine_id
+        self.reply_to = ADDRESS_ANONYMOUS
+        self.to = ADDRESS_ANONYMOUS
+        self.max_envelope_size = 512000
+        self.locale = locale
+        self.data_locale = data_locale
+        self.session_id = session_id
+        self.operation_timeout_sec = operation_timeout
+        self.identifier = identifier
+        self.ack_requested = True
+
+    @staticmethod
+    def load(tree: ET.Element) -> Envelope:
+        envelope = tree
+
+        to = envelope.find('./s:Header/a:To', namespace)
+        to = to.text.strip() if to is not None else None
+        machine_id = envelope.find('./s:Header/m:MachineID',
+                                   {**namespace, 'm': 'http://schemas.microsoft.com/wbem/wsman/1/machineid'})
+        machine_id = machine_id.text.strip() if machine_id is not None else None
+        reply_to = envelope.find('./s:Header/a:ReplyTo/a:Address', namespace)
+        reply_to = reply_to.text.strip() if reply_to is not None else None
+        action = envelope.find('./s:Header/a:Action', namespace)
+        action = action.text.strip() if action is not None else None
+        max_envelope_size = envelope.find('./s:Header/w:MaxEnvelopeSize', namespace)
+        max_envelope_size = int(max_envelope_size.text.strip()) if max_envelope_size is not None else None
+        message_id = envelope.find('./s:Header/a:MessageID', namespace)
+        message_id = message_id.text.strip() if message_id is not None else None
+        locale = envelope.find('./s:Header/w:Locale', namespace)
+        locale = locale.get('xml:lang') if locale is not None else None
+        data_locale = envelope.find('./s:Header/p:DataLocale', namespace)
+        data_locale = data_locale.get('xml:lang') if data_locale is not None else None
+        session_id = envelope.find('./s:Header/p:SessionId', namespace)
+        session_id = session_id.text.strip() if session_id is not None else None
+        operation_id = envelope.find('./s:Header/p:OperationID', namespace)
+        operation_id = operation_id.text.strip() if operation_id is not None else None
+        sequence_id = envelope.find('./s:Header/p:SequenceId', namespace)
+        sequence_id = int(sequence_id.text.strip()) if sequence_id is not None else None
+        operation_timeout = envelope.find('./s:Header/w:OperationTimeout', namespace)
+        operation_timeout_sec = _get_time(operation_timeout.text.strip()) if operation_timeout is not None else None
+        identifier = envelope.find('./s:Header/e:Identifier', namespace)
+        identifier = identifier.text.strip() if identifier is not None else None
+        ack_requested = envelope.find('./s:Header/w:AckRequested', namespace) is not None
+
+        if action != ACTION_HEARTBEAT:
+            raise AssertionError()
+
+        envelope = HeartbeatEnvelope(
+            machine_id=machine_id,
+            message_id=message_id,
+            locale=locale,
+            data_locale=data_locale,
+            session_id=session_id,
+            operation_id=operation_id,
+            operation_timeout=operation_timeout_sec,
+            identifier=identifier
+        )
+        envelope.to = to
+        envelope.reply_to = reply_to
+        envelope.max_envelope_size = max_envelope_size
+        envelope.sequence_id = sequence_id
+        envelope.ack_requested = ack_requested
+        envelope.errors = Envelope.get_errors(tree)
+        return envelope
+
+    def xml(self) -> ET.Element:
+        raise NotImplementedError()  # TODO EnumerateSubscription.xml() is needed for client
+
+    def __repr__(self) -> str:
+        return f'<Heartbeat {repr(self.id)} {{{repr(self.machine_id)}, ' \
+               f'Sess={repr(self.session_id)}, Ack={repr(self.ack_requested)}, {repr(self.to)}}}>'
+
+    def __str__(self) -> str:
+        return f'<Heartbeat {str(self.id)} {{{str(self.machine_id)}, ' \
+               f'Sess={str(self.session_id)}, Ack={str(self.ack_requested)}, {str(self.to)}}}>'
 
 
 class AckEnvelope(Envelope):
-    pass
+    def __init__(self, relates_to: str, operation_id: str = None, message_id: str = None):
+        super().__init__(ACTION_ACK, None, operation_id, message_id)
+        self.to = ADDRESS_ANONYMOUS
+        self.relates_to = relates_to
+
+    @staticmethod
+    def load(tree: ET.Element) -> Envelope:
+        raise NotImplementedError()  # TODO AckEnvelope.load() is needed for client
+
+    def xml(self) -> ET.Element:
+        envelope = ET.Element('s:Envelope', namespace_)
+
+        header = ET.SubElement(envelope, 's:Header')
+        action = ET.SubElement(header, 'a:Action')
+        action.text = repr(self.action)
+        message_id = ET.SubElement(header, 'a:MessageID')
+        message_id.text = str(self.id)
+        to = ET.SubElement(header, 'a:To')
+        to.text = str(self.to)
+        operation_id = ET.SubElement(header, 'p:OperationID')
+        operation_id.text = str(self.operation_id)
+        sequence_id = ET.SubElement(header, 'p:SequenceId')
+        sequence_id.text = str(self.sequence_id)
+        relates_to = ET.SubElement(header, 'a:RelatesTo')
+        relates_to.text = str(self.relates_to)
+
+        ET.SubElement(envelope, 's:Body')
+
+        return envelope
+
+
+class EventsEnvelope(Envelope):
+    def __init__(self, identifier: str, operation_id: str, locale: str, data_locale: str, session_id: str,
+                 operation_timeout: float = 60.0, machine_id: str = None, message_id: str = None):
+        super().__init__(ACTION_EVENTS, None, operation_id, message_id)
+        self.machine_id = machine_id
+        self.reply_to = ADDRESS_ANONYMOUS
+        self.to = ADDRESS_ANONYMOUS
+        self.max_envelope_size = 512000
+        self.locale = locale
+        self.data_locale = data_locale
+        self.session_id = session_id
+        self.operation_timeout_sec = operation_timeout
+        self.identifier = identifier
+        self.ack_requested = True
+        self.events = []
+
+    @staticmethod
+    def load(tree: ET.Element) -> Envelope:
+        envelope = tree
+
+        to = envelope.find('./s:Header/a:To', namespace)
+        to = to.text.strip() if to is not None else None
+        machine_id = envelope.find('./s:Header/m:MachineID',
+                                   {**namespace, 'm': 'http://schemas.microsoft.com/wbem/wsman/1/machineid'})
+        machine_id = machine_id.text.strip() if machine_id is not None else None
+        reply_to = envelope.find('./s:Header/a:ReplyTo/a:Address', namespace)
+        reply_to = reply_to.text.strip() if reply_to is not None else None
+        action = envelope.find('./s:Header/a:Action', namespace)
+        action = action.text.strip() if action is not None else None
+        max_envelope_size = envelope.find('./s:Header/w:MaxEnvelopeSize', namespace)
+        max_envelope_size = int(max_envelope_size.text.strip()) if max_envelope_size is not None else None
+        message_id = envelope.find('./s:Header/a:MessageID', namespace)
+        message_id = message_id.text.strip() if message_id is not None else None
+        locale = envelope.find('./s:Header/w:Locale', namespace)
+        locale = locale.get('xml:lang') if locale is not None else None
+        data_locale = envelope.find('./s:Header/p:DataLocale', namespace)
+        data_locale = data_locale.get('xml:lang') if data_locale is not None else None
+        session_id = envelope.find('./s:Header/p:SessionId', namespace)
+        session_id = session_id.text.strip() if session_id is not None else None
+        operation_id = envelope.find('./s:Header/p:OperationID', namespace)
+        operation_id = operation_id.text.strip() if operation_id is not None else None
+        sequence_id = envelope.find('./s:Header/p:SequenceId', namespace)
+        sequence_id = int(sequence_id.text.strip()) if sequence_id is not None else None
+        operation_timeout = envelope.find('./s:Header/w:OperationTimeout', namespace)
+        operation_timeout_sec = _get_time(operation_timeout.text.strip()) if operation_timeout is not None else None
+        identifier = envelope.find('./s:Header/e:Identifier', namespace)
+        identifier = identifier.text.strip() if identifier is not None else None
+        ack_requested = envelope.find('./s:Header/w:AckRequested', namespace) is not None
+
+        events = envelope.find('./s:Body/w:Events', namespace)
+        event_list = []
+        for event in events.iterfind('./w:Event', namespace):
+            event_action = Action(event.get('Action'))
+            if event_action == ACTION_EVENT:
+                event_list.append(event.text)
+            else:
+                raise NotImplementedError(f'Unknown event action: {event_action}')
+
+        if action != ACTION_EVENTS:
+            raise AssertionError()
+
+        envelope = HeartbeatEnvelope(
+            machine_id=machine_id,
+            message_id=message_id,
+            locale=locale,
+            data_locale=data_locale,
+            session_id=session_id,
+            operation_id=operation_id,
+            operation_timeout=operation_timeout_sec,
+            identifier=identifier
+        )
+        envelope.to = to
+        envelope.reply_to = reply_to
+        envelope.max_envelope_size = max_envelope_size
+        envelope.sequence_id = sequence_id
+        envelope.ack_requested = ack_requested
+        envelope.events = event_list
+        envelope.errors = Envelope.get_errors(tree)
+        return envelope
+
+    def xml(self) -> ET.Element:
+        raise NotImplementedError()  # TODO EventsEnvelope.xml() is needed for client
 
 
 if __name__ == '__main__':

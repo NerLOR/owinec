@@ -1,0 +1,32 @@
+<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+            xmlns:e="http://schemas.xmlsoap.org/ws/2004/08/eventing"
+            xmlns:w="http://schemas.dmtf.org/wbem/wsman/1/wsman.xsd"
+            xmlns:p="http://schemas.microsoft.com/wbem/wsman/1/wsman.xsd">
+    <s:Header>
+        <a:To>https://chakotay:5986/owinec/subscriptions/s1</a:To>
+        <m:MachineID xmlns:m="http://schemas.microsoft.com/wbem/wsman/1/machineid" s:mustUnderstand="false">Picard
+        </m:MachineID>
+        <a:ReplyTo>
+            <a:Address s:mustUnderstand="true">http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous
+            </a:Address>
+        </a:ReplyTo>
+        <a:Action s:mustUnderstand="true">http://schemas.dmtf.org/wbem/wsman/1/wsman/Events</a:Action>
+        <w:MaxEnvelopeSize s:mustUnderstand="true">512000</w:MaxEnvelopeSize>
+        <a:MessageID>uuid:384703E7-83EB-4933-A90D-574F6FE22A8A</a:MessageID>
+        <w:Locale xml:lang="en-US" s:mustUnderstand="false"/>
+        <p:DataLocale xml:lang="en-US" s:mustUnderstand="false"/>
+        <p:SessionId s:mustUnderstand="false">uuid:D3E56DCA-B48D-4BE5-AE29-0B9C704E8F9D</p:SessionId>
+        <p:OperationID s:mustUnderstand="false">uuid:4A907ACA-2F99-4C8A-8596-9D0913A821C9</p:OperationID>
+        <p:SequenceId s:mustUnderstand="false">1</p:SequenceId>
+        <w:OperationTimeout>PT60.000S</w:OperationTimeout>
+        <e:Identifier xmlns:e="http://schemas.xmlsoap.org/ws/2004/08/eventing">b2161493-b3f3-46b4-a48f-11c719b5b828
+        </e:Identifier>
+        <w:AckRequested/>
+    </s:Header>
+    <s:Body>
+        <w:Events>
+            <w:Event Action="http://schemas.dmtf.org/wbem/wsman/1/wsman/Event">
+                <![CDATA[<Event xmlns='http://schemas.microsoft.com/win/2004/08/events/event'><System><Provider Name='Microsoft-Windows-EventForwarder'/><EventID>111</EventID><TimeCreated SystemTime='2020-04-11T14:24:57.566Z'/><Computer>Picard</Computer></System><SubscriptionBookmarkEvent><SubscriptionId></SubscriptionId></SubscriptionBookmarkEvent></Event>]]></w:Event>
+        </w:Events>
+    </s:Body>
+</s:Envelope>
