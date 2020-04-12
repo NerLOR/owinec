@@ -60,10 +60,10 @@ if __name__ == '__main__':
 # https://jdhitsolutions.com/blog/powershell/7193/better-event-logs-with-powershell/
 #
 # I have a very similar function to this. The one thing I’m left wanting is a way to replace all the placeholders with
-# their insertion strings. Here’s a summary of the issue that I had written up before. >>>>Values like “%%2307” (or with
-# only a single leading “%”) are insertion string placeholders. Messages are formed from message text files, which
-# typically are compiled as .DLLs but can also be included in .EXEs (and maybe other) resources. The location of these
-# message text files is stored in the registry under subkeys of
+# their insertion strings. Here’s a summary of the issue that I had written up before.
+# >>>>Values like “%%2307” (or with only a single leading “%”) are insertion string placeholders. Messages are formed
+# from message text files, which typically are compiled as .DLLs but can also be included in .EXEs (and maybe other)
+# resources. The location of these message text files is stored in the registry under subkeys of
 # HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog, that corresponds with the specific logname and source.
 # So essentially you have have something like HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\EventLog\\. Once you
 # locate the correct key, the location data is stored in a value named EventMessageFile, which points to the path of the
