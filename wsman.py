@@ -19,7 +19,6 @@ namespace = {
     'b': 'http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd',
     'e': 'http://schemas.xmlsoap.org/ws/2004/08/eventing'
 }
-# xmlns:m="http://schemas.microsoft.com/wbem/wsman/1/subscription"
 
 namespace_ = {
     'xmlns:s': 'http://www.w3.org/2003/05/soap-envelope',
@@ -30,7 +29,6 @@ namespace_ = {
     'xmlns:b': 'http://schemas.dmtf.org/wbem/wsman/1/cimbinding.xsd',
     'xmlns:e': 'http://schemas.xmlsoap.org/ws/2004/08/eventing'
 }
-
 
 ACTION_ENUMERATE = 'http://schemas.xmlsoap.org/ws/2004/09/enumeration/Enumerate'
 ACTION_ENUMERATE_RESPONSE = 'http://schemas.xmlsoap.org/ws/2004/09/enumeration/EnumerateResponse'
@@ -641,11 +639,3 @@ class EventsEnvelope(Envelope):
 
     def xml(self) -> ET.Element:
         raise NotImplementedError()  # TODO EventsEnvelope.xml() is needed for client
-
-
-if __name__ == '__main__':
-    env = EnumerateSubscriptionEnvelope.load(ET.parse('raw/01-client.raw.xml').getroot())
-    print(env)
-    print(env.operation_timeout)
-    print(env.to)
-    print(env.locale, env.data_locale)

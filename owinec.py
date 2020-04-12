@@ -141,7 +141,7 @@ class WSManHandler(SoapHandler):
         )
         subscription.bookmarks = False
         subscription.read_existing_events = True
-        subscription.content_format = 'Raw'
+        subscription.content_format = 'RenderedText'
         subscription.max_time = 0.0
         subscription.connection_retries = 60
         subscription.connection_retries_wait = 10.0
@@ -157,7 +157,7 @@ class WSManHandler(SoapHandler):
 
     def do_events(self, envelope: wsman.EventsEnvelope) -> str:
         for e in envelope.events:
-            print(e)
+            print(e.encode('utf8'))
         response = wsman.AckEnvelope(envelope.id, envelope.operation_id)
         return response.dump()
 
