@@ -57,6 +57,8 @@ if __name__ == '__main__':
         print(parse(f.read(), keep_rendered_text=True))
 
 
+# https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/default.aspx
+
 # https://jdhitsolutions.com/blog/powershell/7193/better-event-logs-with-powershell/
 #
 # I have a very similar function to this. The one thing I’m left wanting is a way to replace all the placeholders with
