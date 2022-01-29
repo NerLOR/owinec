@@ -1,8 +1,31 @@
 #!/usr/bin/env python3
 
-# owinec - Open Windows Event Collector
+# Owinec - Open Windows Event Collector
 # Windows XML-Format Event Parser
-# Lorenz Stechauner, 2020
+# Copyright (C) 2020, Lorenz Stechauner
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+# https://docs.microsoft.com/en-us/dotnet/api/system.diagnostics.eventing.reader.eventrecord?view=dotnet-plat-ext-3.1
+# https://docs.microsoft.com/de-at/windows/win32/eventlog/event-identifiers
+# https://docs.microsoft.com/de-at/windows/win32/eventlog/event-sources
+#
+# https://docs.microsoft.com/de-at/windows/win32/wes/windows-event-log
+# https://docs.microsoft.com/en-us/windows/win32/eventlog/event-logging
+#
+# https://github.com/libyal/libevt/blob/master/documentation/Windows%20Event%20Log%20(EVT)%20format.asciidoc
 
 from typing import Dict
 import xml.etree.ElementTree as ET
