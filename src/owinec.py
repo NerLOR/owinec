@@ -155,7 +155,7 @@ class WSManHandler(SoapHandler):
         subscription.bookmarks = False
         subscription.read_existing_events = True
         subscription.content_format = 'RenderedText'
-        subscription.max_time = 0.0
+        subscription.max_time = 1.0
         subscription.connection_retries = 60
         subscription.connection_retries_wait = 10.0
         subscription.heartbeat_sec = 60.0

@@ -22,6 +22,7 @@ from typing import List, Tuple, Dict
 import xml.etree.ElementTree as ET
 import re
 import uuid
+import winevent
 
 namespace = {
     's': 'http://www.w3.org/2003/05/soap-envelope',
@@ -624,7 +625,7 @@ class EventsEnvelope(Envelope):
         for event in events.iterfind('./w:Event', namespace):
             event_action = Action(event.get('Action'))
             if event_action == ACTION_EVENT:
-                event_list.append(event.text)
+                event_list.append(winevent.parse(event.text))
             else:
                 raise NotImplementedError(f'Unknown event action: {event_action}')
 

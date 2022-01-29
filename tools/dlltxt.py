@@ -4,39 +4,35 @@
 # Extract event description from dll
 # Lorenz Stechauner, 2020
 
-import struct
-
-
-def extract(file_name: str):
-    offset = 0x0008
-    with open(file_name, 'rb') as dll:
-        while True:
-            dll.seek(offset, 0)
-            signature = dll.read(4)
-            if signature != b'EVNT':
-                offset += 0x100
-            else:
-                break
-        size, = struct.unpack('<4xI4x', dll.read(12))
-        events = []
-        for i in range(size):
-            evt_id_1, evt_id_2, evt_off, sig = struct.unpack('<H2x12xH2xI8s16x', dll.read(48))
-            print(evt_id_1, evt_id_2, evt_off, sig)
-            a = dll.tell()
-            dll.seek(-evt_off, 1)
-            print(dll.read(16))
-            dll.seek(a, 0)
-            if sig != b'\xcc\xd2\x07\x00\xfc\xd2\x07\x00':
-                continue
-            events.append({'id': evt_id_2, 'offset': evt_off})
-        for event in events:
-            print(f'{event["id"]}: {hex(event["offset"])}')
-            dll.seek(event['offset'] + 0xd0c, 0)
-            print(dll.read(64))
+import pefile
 
 
 if __name__ == '__main__':
-    extract('test/adtschema.dll')
+    file = pefile.PE('../test/adtschema.dll')
+    strings = list()
+
+    idx = [entry.id for entry in file.DIRECTORY_ENTRY_RESOURCE.entries].index(pefile.RESOURCE_TYPE['RT_MESSAGETABLE'])
+
+    directory = file.DIRECTORY_ENTRY_RESOURCE.entries[idx]
+    for entry in directory.directory.entries:
+        data_rva = entry.directory.entries[0].data.struct.OffsetToData
+        size = entry.directory.entries[0].data.struct.Size
+        print('Directory entry at RVA', hex(data_rva), 'of size', hex(size))
+
+        data = file.get_memory_mapped_image()[data_rva:data_rva + size]
+        offset = 0
+        while offset < size:
+            ustr_length = file.get_word_from_data(data[offset:offset + 4], 0)
+            ustr_flags = file.get_word_from_data(data[offset:offset + 4], 2)
+            offset += 4
+
+            if ustr_length == 0:
+                continue
+
+            ustr = file.get_string_u_at_rva(data_rva + offset, max_length=ustr_length)
+            offset += ustr_length * 2
+            print(ustr)
+
 
 # 0x0D0C
 # 0x0DF8
